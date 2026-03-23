@@ -46,7 +46,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     <div
       className="relative min-h-screen flex flex-col items-center justify-start overflow-hidden pt-40 pb-16 sm:pt-64 sm:pb-20"
       style={{
-        backgroundImage: "url('/adds.png')",
+        backgroundImage: "url('/adss.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
