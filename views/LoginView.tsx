@@ -59,7 +59,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center">
 
         {/* LOGO */}
-        <div className="mb-16 text-center">
+        <div className="mb-10 mt-10 flex flex-col items-center justify-center text-center">
           <Logo size={140} />
           <h1 className="text-3xl font-black text-gold mt-2 uppercase italic">
             Olimpianos Fit
