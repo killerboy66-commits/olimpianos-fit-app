@@ -54,11 +54,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           transition={{ duration: 2.5 }}
           className="absolute inset-0 flex items-center justify-center"
         >
-          <img 
-            src="/adds.png" 
-            className="w-full h-full object-cover" 
-            alt="Capa Zeus"
-          />
+          <div
+  className="absolute inset-0 bg-cover bg-center opacity-90"
+  style={{
+    backgroundImage: "url('/adds.png')"
+  }}
+/>
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80"></div>
         </motion.div>
       </div>
