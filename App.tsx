@@ -4,7 +4,7 @@ import { Route, Usuario } from './types';
 import { db } from './services/storage';
 import { supabase } from './services/supabase';
 
-// Componentes de Visualização
+// Views
 import LoginView from './views/LoginView';
 import AlunoDashboard from './views/AlunoDashboard';
 import TreinoDetalhe from './views/TreinoDetalhe';
@@ -27,9 +27,6 @@ const App: React.FC = () => {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // teste temporário para conferir se A / B / C existem no banco
-  const [treinoTeste, setTreinoTeste] = useState<any[]>([]);
-
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 400);
@@ -40,23 +37,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initApp = async () => {
-      console.log('App mounted, checking logged user...');
       try {
         const isConnected = await db.testConnection();
         if (!isConnected) {
-          notify('Erro de conexão com o banco de dados. Verifique as configurações.', 'error');
+          notify('Erro de conexão com o banco de dados.', 'error');
         }
 
         const logged = await db.getLoggedUser();
         if (logged) {
-          console.log('User found:', logged.email);
           setUser(logged);
           setCurrentRoute(logged.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
-        } else {
-          console.log('No user logged in.');
         }
       } catch (error) {
-        console.error('Error during initial load:', error);
+        console.error(error);
       }
     };
     initApp();
@@ -65,14 +58,15 @@ const App: React.FC = () => {
   const handleLogin = async (email: string) => {
     const users = await db.getUsers();
     const found = users.find((u) => u.email === email);
+
     if (found) {
       await db.setLoggedUser(found);
       await db.setLastUser(found.email);
       setUser(found);
       setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
-      notify(`Bem-vindo de volta, ${found.nome}!`, 'success');
+      notify(`Bem-vindo, ${found.nome}!`, 'success');
     } else {
-      notify('E-mail não cadastrado. Tente: aluno@teste.com ou renato@vip.com', 'error');
+      notify('E-mail não cadastrado.', 'error');
     }
   };
 
@@ -87,48 +81,11 @@ const App: React.FC = () => {
     setCurrentRoute(Route.TREINO);
   };
 
-  const testarSalvarSupabase = async () => {
-    const { error } = await supabase.from('checkins').insert([
-      {
-        nome: user?.nome || 'Teste',
-        humor: 'bem',
-        energia: 'alta',
-        sono: 'bom',
-      },
-    ]);
-
-    if (error) {
-      console.error('Erro ao salvar no Supabase:', error);
-      notify(`Erro ao salvar no Supabase: ${error.message}`, 'error');
-      return;
-    }
-
-    notify('Salvo no Supabase com sucesso!', 'success');
-  };
-
-  const carregarTreinoTeste = async (ficha: 'A' | 'B' | 'C') => {
-    const { data, error } = await supabase
-      .from('ficha_treino_itens')
-      .select('*')
-      .eq('ficha', ficha);
-
-    if (error) {
-      console.error(`Erro ao buscar treino ${ficha}:`, error);
-      notify(`Erro ao buscar treino ${ficha}: ${error.message}`, 'error');
-      return;
-    }
-
-    setTreinoTeste(data || []);
-    notify(`Treino ${ficha} carregado com sucesso!`, 'success');
-  };
-
   const renderContent = () => {
     if (!user && currentRoute !== Route.LOGIN) {
-      setCurrentRoute(Route.LOGIN);
       return <LoginView onLogin={handleLogin} />;
     }
 
-    // Segurança de Rota: Aluno não acessa Biblioteca/Exercícios
     if (user?.role === 'aluno' && currentRoute === Route.EXERCICIOS) {
       setCurrentRoute(Route.ALUNO);
       return (
@@ -195,6 +152,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+
       {user && (
         <Navbar
           user={user}
@@ -204,57 +162,20 @@ const App: React.FC = () => {
         />
       )}
 
-      {user && (
-        <div className="container mx-auto px-4 pt-4 max-w-4xl">
-          <div className="mb-4 flex flex-wrap gap-3">
-            <button
-              onClick={testarSalvarSupabase}
-              className="bg-yellow-500 text-black px-4 py-2 rounded font-semibold hover:opacity-90"
-            >
-              Testar Supabase
-            </button>
-
-            <button
-              onClick={() => carregarTreinoTeste('A')}
-              className="bg-white/10 text-white px-4 py-2 rounded font-semibold hover:bg-white/20"
-            >
-              Teste Treino A
-            </button>
-
-            <button
-              onClick={() => carregarTreinoTeste('B')}
-              className="bg-white/10 text-white px-4 py-2 rounded font-semibold hover:bg-white/20"
-            >
-              Teste Treino B
-            </button>
-
-            <button
-              onClick={() => carregarTreinoTeste('C')}
-              className="bg-white/10 text-white px-4 py-2 rounded font-semibold hover:bg-white/20"
-            >
-              Teste Treino C
-            </button>
-          </div>
-
-          <pre className="mb-4 overflow-auto rounded bg-black/40 p-4 text-xs text-green-400">
-            {JSON.stringify(treinoTeste, null, 2)}
-          </pre>
-        </div>
-      )}
-
       {currentRoute === Route.LOGIN ? (
         <main className="flex-1 w-full">{renderContent()}</main>
       ) : (
-        <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">{renderContent()}</main>
+        <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
+          {renderContent()}
+        </main>
       )}
 
       {showScrollTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-8 right-8 z-50 p-4 bg-gold text-black rounded-full shadow-2xl shadow-gold/40 hover:scale-110 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-4 animate-pulse-gold"
-          aria-label="Voltar ao topo"
+          className="fixed bottom-8 right-8 z-50 p-4 bg-gold text-black rounded-full shadow-2xl shadow-gold/40 hover:scale-110 transition-all"
         >
-          <ChevronUp size={24} strokeWidth={3} />
+          <ChevronUp size={24} />
         </button>
       )}
     </div>
