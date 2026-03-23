@@ -1,0 +1,9 @@
+{
+  "name": "Olimpianos Fit",
+  "short_name": "Olimpianos",
+  "description": "Treinamento profissional. Resultados reais. Sistema VIP de alta performance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

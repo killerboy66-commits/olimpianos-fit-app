@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Olimpianos Fit - VIP Training</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cinzel:wght@400;700;900&family=Space+Grotesk:wght@300;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#C6A15B" />
+    <style>
+      :root {
+        --gold: #C6A15B;
+        --gold-light: #F5E1A4;
+        --gold-dark: #8A6D3B;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #050505;
+        color: #FFFFFF;
+        margin: 0;
+        overflow-x: hidden;
+      }
+
+      .font-display { font-family: 'Cinzel', serif; }
+      .font-tech { font-family: 'Space Grotesk', sans-serif; }
+
+      .bg-gold { background-color: var(--gold); }
+      .text-gold { color: var(--gold); }
+      .border-gold { border-color: var(--gold); }
+      
+      .text-glow-gold {
+        text-shadow: 0 0 15px rgba(198, 161, 91, 0.5);
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #050505;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--gold);
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .gold-scrollbar::-webkit-scrollbar {
+        height: 4px;
+        display: block;
+      }
+      .gold-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+      }
+      .gold-scrollbar::-webkit-scrollbar-thumb {
+        background: var(--gold);
+        border-radius: 10px;
+      }
+      .gold-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: var(--gold) rgba(255, 255, 255, 0.05);
+      }
+
+      @keyframes pulse-gold {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.05); }
+      }
+      .animate-pulse-gold {
+        animation: pulse-gold 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      .card-premium {
+        background: rgba(15, 15, 15, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(198, 161, 91, 0.1);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .card-premium:hover {
+        border-color: rgba(198, 161, 91, 0.4);
+        box-shadow: 0 20px 40px -20px rgba(198, 161, 91, 0.2);
+        transform: translateY(-5px);
+      }
+    </style>
+    <!-- 
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+        "react/": "https://esm.sh/react@^19.2.4/",
+        "react": "https://esm.sh/react@^19.2.4",
+        "recharts": "https://esm.sh/recharts@^3.7.0",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+        "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
+      }
+    }
+    </script>
+    -->
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root">
+      <div style="display: flex; align-items: center; justify-content: center; height: 100vh; color: #C6A15B; font-family: sans-serif;">
+        Carregando Olimpianos Fit...
+      </div>
+    </div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
