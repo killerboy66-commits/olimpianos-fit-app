@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { Mail, ShieldCheck, User, ArrowRight, RotateCcw, ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { db } from '../services/storage';
 import { Usuario } from '../types';
 import Logo from '../components/Logo';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LoginViewProps {
   onLogin: (email: string) => void;
@@ -44,29 +43,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-start overflow-hidden pt-40 pb-16 sm:pt-64 sm:pb-20 bg-[#050505]">
-      
-      {/* 🔥 BACKGROUND ZEUS */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <motion.div 
-          initial={{ opacity: 0, scale: 1.2 }}
-          animate={{ opacity: 1, scale: 1.1 }}
-          transition={{ duration: 2.5 }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <div
-  className="absolute inset-0 bg-cover bg-center opacity-90"
-  style={{
-    backgroundImage: "url('/adds.png')"
-  }}
-/>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80"></div>
-        </motion.div>
-      </div>
+    <div
+      className="relative min-h-screen flex flex-col items-center justify-start overflow-hidden pt-40 pb-16 sm:pt-64 sm:pb-20"
+      style={{
+        backgroundImage: "url('/adds.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#050505",
+      }}
+    >
+      {/* overlay escuro */}
+      <div className="absolute inset-0 bg-black/50"></div>
 
       <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center">
 
-        {/* 🔥 LOGO */}
+        {/* LOGO */}
         <div className="mb-16 text-center">
           <Logo size={140} />
           <h1 className="text-3xl font-black text-gold mt-2 uppercase italic">
@@ -84,7 +76,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               className="w-full max-w-md grid gap-4"
             >
 
-              {/* 🔥 CONTINUAR COMO */}
+              {/* CONTINUAR COMO */}
               {lastUser && (
                 <button 
                   onClick={handleQuickLogin}
@@ -93,7 +85,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-lg border border-gold overflow-hidden">
                       <img 
-                        src={lastUser.role === 'professor' ? "/adds.png" : "/aluno.png"} 
+                        src={lastUser.role === 'professor' ? "/logo.png" : "/aluno.png"} 
                         className="w-full h-full object-cover"
                         alt="Avatar"
                       />
@@ -107,18 +99,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 </button>
               )}
 
-              {/* 🔥 PORTAL ATLETA */}
+              {/* PORTAL ATLETA */}
               <button 
                 onClick={() => handlePortalSelection('atleta')}
-                className="bg-black border border-gold p-4 rounded-xl text-white hover:bg-gold/10"
+                className="bg-black/80 border border-gold p-4 rounded-xl text-white hover:bg-gold/10"
               >
                 Portal do Atleta
               </button>
 
-              {/* 🔥 PORTAL MESTRE */}
+              {/* PORTAL MESTRE */}
               <button 
                 onClick={() => handlePortalSelection('mestre')}
-                className="bg-black border border-gold p-4 rounded-xl text-white hover:bg-gold/10"
+                className="bg-black/80 border border-gold p-4 rounded-xl text-white hover:bg-gold/10"
               >
                 Centro de Comando
               </button>
