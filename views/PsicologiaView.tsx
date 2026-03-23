@@ -85,13 +85,15 @@ const PsicologiaView: React.FC<PsicologiaViewProps> = ({ user, onNavigate }) => 
                 <Video size={22} fill="currentColor" />
                 <span className="text-sm uppercase tracking-widest">Entrar no Google Meet</span>
               </a>
-              <button 
-                onClick={() => onNavigate(Route.AICHAT)}
-                className="bg-[#1A1A1A] border border-[#222] text-white py-5 rounded-2xl font-black flex items-center justify-center space-x-3 hover:bg-[#222] transition-all"
-              >
-                <MessageSquare size={22} />
-                <span className="text-sm uppercase tracking-widest">Suporte via Chat IA</span>
-              </button>
+             <a 
+  href="https://wa.me/5511987654321"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="bg-[#25D366] text-white py-5 rounded-2xl font-black flex items-center justify-center space-x-3 hover:scale-105 transition-all shadow-xl shadow-green-500/30"
+>
+  <MessageSquare size={22} />
+  <span className="text-sm uppercase tracking-widest">Falar no WhatsApp</span>
+</a>
             </div>
           </div>
         </div>
