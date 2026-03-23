@@ -54,7 +54,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       }}
     >
       {/* overlay escuro */}
-      <div className="absolute inset-0 bg-black/50"></div>
+      <div className="absolute inset-0 bg-black/20"></div>
 
       <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center">
 
