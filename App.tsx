@@ -1,4 +1,4 @@
-
+import InstallApp from "./InstallApp";
 import React, { useState, useEffect } from 'react';
 import { Route, Usuario } from './types';
 import { db } from './services/storage';
@@ -152,6 +152,8 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+
+<InstallApp />
 
       {user && (
         <Navbar
