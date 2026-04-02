@@ -1,5 +1,5 @@
 
-  {
+  [{
     "id": "001",
     "nome": "Supino reto barra",
     "grupoId": "peito",
@@ -2541,6 +2541,3 @@
     "nivel": "Iniciante–Avançado"
   }
 ]
-    
-    
-    

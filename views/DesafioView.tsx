@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Trophy, ExternalLink, Zap, Target, Users, Flame } from 'lucide-react';
 

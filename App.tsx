@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<Route>(Route.LOGIN);
   const [user, setUser] = useState<Usuario | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  const [selectedProfessorAluno, setSelectedProfessorAluno] = useState<Usuario | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -55,30 +56,64 @@ const App: React.FC = () => {
     initApp();
   }, [notify]);
 
-  const handleLogin = async (email: string) => {
+ const handleLogin = async (email: string) => {
+  try {
     const users = await db.getUsers();
     const found = users.find((u) => u.email === email);
 
-    if (found) {
+    if (!found) {
+      notify('E-mail não cadastrado.', 'error');
+      return;
+    }
+
+    // salva direto (GARANTIDO)
+    localStorage.setItem('userEmail', found.email);
+
+    // tenta salvar no storage (sem travar o fluxo)
+    try {
       await db.setLoggedUser(found);
       await db.setLastUser(found.email);
-      setUser(found);
-      setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
-      notify(`Bem-vindo, ${found.nome}!`, 'success');
-    } else {
-      notify('E-mail não cadastrado.', 'error');
+    } catch (e) {
+      console.warn('Erro ao salvar sessão, mas login continua:', e);
     }
-  };
+
+    console.log('LOGIN OK:', found);
+
+    setUser(found);
+    setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
+
+    notify(`Bem-vindo, ${found.nome}!`, 'success');
+
+  } catch (error) {
+    console.error('Erro no login:', error);
+    notify('Erro ao fazer login.', 'error');
+  }
+};
 
   const handleLogout = async () => {
     await db.setLoggedUser(null);
     setUser(null);
+    setSelectedProfessorAluno(null);
     setCurrentRoute(Route.LOGIN);
   };
 
   const navigateToTreino = (id: string) => {
     setSelectedWorkoutId(id);
     setCurrentRoute(Route.TREINO);
+  };
+
+  const handleProfessorSelectAluno = (aluno: Usuario) => {
+    setSelectedProfessorAluno(aluno);
+    setCurrentRoute(Route.PROGRESSO);
+  };
+
+  const handleBackFromProgress = () => {
+    if (user?.role === 'professor') {
+      setCurrentRoute(Route.PROFESSOR);
+      return;
+    }
+
+    setCurrentRoute(Route.ALUNO);
   };
 
   const renderContent = () => {
@@ -122,7 +157,12 @@ const App: React.FC = () => {
         );
 
       case Route.PROGRESSO:
-        return <ProgressoView user={user!} onBack={() => setCurrentRoute(Route.ALUNO)} />;
+        return (
+          <ProgressoView
+            user={user?.role === 'professor' && selectedProfessorAluno ? selectedProfessorAluno : user!}
+            onBack={handleBackFromProgress}
+          />
+        );
 
       case Route.NUTRICIONISTA:
         return <NutricionistaView user={user!} onBack={() => setCurrentRoute(Route.ALUNO)} />;
@@ -143,7 +183,14 @@ const App: React.FC = () => {
         return <AIChat />;
 
       case Route.PROFESSOR:
-        return <ProfessorPainel user={user!} onLogout={handleLogout} />;
+        return (
+          <ProfessorPainel
+            user={user!}
+            onLogout={handleLogout}
+            onNavigate={setCurrentRoute}
+            onSelectAluno={handleProfessorSelectAluno}
+          />
+        );
 
       default:
         return <LoginView onLogin={handleLogin} />;
@@ -152,8 +199,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
-
-<InstallApp />
+      <InstallApp />
 
       {user && (
         <Navbar

@@ -1,382 +1,639 @@
-
 import { supabase } from './supabase';
-import { Usuario, Exercicio, Treino, FichaTreinoItem, Atribuicao, RegistroProgresso, Periodizacao, CronogramaSemanal, AvaliacaoFisica } from '../types';
-import { EXERCICIOS_DATA } from '../data/exercicios';
+import {
+  Usuario,
+  Exercicio,
+  FichaTreinoItem,
+  MesPeriodizacao,
+  Atribuicao,
+  CronogramaSemanal,
+  AvaliacaoFisica,
+  Treino,
+} from '../types';
 
-const STORAGE_KEYS = {
-  LOGGED_USER: 'wf_current_user',
-  LAST_USER: 'wf_last_user'
+type TemplateItem = {
+  id?: string;
+  exercise_id: string;
+  exercise_name?: string;
+  series: number;
+  reps: string;
+  descanso: string;
+  metodo?: string;
+  ordem: number;
 };
 
-const INITIAL_EXERCISES: Exercicio[] = EXERCICIOS_DATA;
+type PeriodizacaoRow = {
+  user_id: string;
+  meses: MesPeriodizacao[];
+};
 
-const INITIAL_WORKOUTS: Treino[] = [
-  { id: 'A', titulo: 'Superior - Peito/Tríceps', duracao_min: 50 },
-  { id: 'B', titulo: 'Inferior - Quadríceps', duracao_min: 60 },
-  { id: 'C', titulo: 'Superior - Costas/Bíceps', duracao_min: 50 },
-  { id: 'D', titulo: 'Inferior - Posterior/Glúteo', duracao_min: 60 },
-  { id: 'E', titulo: 'Ombros e Abdômen', duracao_min: 45 },
-  { id: 'F', titulo: 'Cardio e Mobilidade', duracao_min: 40 },
-  { id: 'G', titulo: 'Treino G - Personalizado', duracao_min: 45 },
-];
+const handleError = (context: string, error: any) => {
+  console.error(`[storage] ${context}:`, error);
+  throw error;
+};
 
 export const db = {
-  testConnection: async () => {
+  async testConnection(): Promise<boolean> {
     try {
-      const { error } = await supabase.from('usuarios').select('id').limit(1).maybeSingle();
-      if (error && error.message.includes('the client is offline')) {
-        console.error("Please check your Firebase/Supabase configuration.");
-        return false;
-      }
+      const { error } = await supabase.from('usuarios').select('id').limit(1);
+      if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error('[storage] testConnection:', error);
       return false;
     }
   },
 
-  getUsers: async (): Promise<Usuario[]> => {
-    const { data, error } = await supabase.from('usuarios').select('*');
-    if (error) {
-      console.error('Error fetching users:', error);
+  async getLoggedUser(): Promise<Usuario | null> {
+    try {
+      const email = localStorage.getItem('userEmail');
+      if (!email) return null;
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as Usuario | null;
+    } catch (error) {
+      handleError('getLoggedUser', error);
+      return null;
+    }
+  },
+
+  async setLoggedUser(user: Usuario | null): Promise<void> {
+    try {
+      if (!user) {
+        localStorage.removeItem('userEmail');
+        return;
+      }
+      localStorage.setItem('userEmail', user.email);
+    } catch (error) {
+      handleError('setLoggedUser', error);
+    }
+  },
+
+  async getLastUser(): Promise<string | null> {
+    try {
+      return localStorage.getItem('lastUserEmail');
+    } catch (error) {
+      handleError('getLastUser', error);
+      return null;
+    }
+  },
+
+  async setLastUser(email: string): Promise<void> {
+    try {
+      localStorage.setItem('lastUserEmail', email);
+    } catch (error) {
+      handleError('setLastUser', error);
+    }
+  },
+
+  async getUsers(): Promise<Usuario[]> {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as Usuario[];
+    } catch (error) {
+      handleError('getUsers', error);
       return [];
     }
-    
-    if (!data || data.length === 0) {
-      const defaultProfAvatar = "/adss.png";
-      const defaultStudentAvatar = "/aluno.png";
-      const initial = [
-        { 
-          id: 'prof1', 
-          nome: 'Prof. Renato', 
-          email: 'renato@vip.com', 
-          role: 'professor' as const,
-          foto: defaultProfAvatar
-        },
-        { id: 'aluno1', nome: 'João Atleta', email: 'aluno@teste.com', role: 'aluno' as const, objetivo: 'Hipertrofia e Definição', foto: defaultStudentAvatar }
-      ];
-      await db.saveUsers(initial);
-      return initial;
-    }
-    return data as Usuario[];
   },
 
-  saveUsers: async (users: Usuario[]) => {
-    const { error } = await supabase.from('usuarios').upsert(users);
-    if (error) console.error('Error saving users:', error);
-  },
+  async addUser(user: Usuario): Promise<Usuario> {
+    try {
+      const payload = {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
+        objetivo: user.objetivo ?? '',
+        foto: user.foto ?? '',
+        conquistas_ids: user.conquistas_ids ?? [],
+      };
 
-  deleteUser: async (userId: string) => {
-    const { error } = await supabase.from('usuarios').delete().eq('id', userId);
-    if (error) console.error('Error deleting user:', error);
-  },
-
-  addAchievement: async (userId: string, achievementId: string) => {
-    const { data: user, error: fetchError } = await supabase
-      .from('usuarios')
-      .select('conquistas_ids')
-      .eq('id', userId)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching user for achievement:', fetchError);
-      return false;
-    }
-
-    const currentAchievements = user.conquistas_ids || [];
-    if (!currentAchievements.includes(achievementId)) {
-      const updatedAchievements = [...currentAchievements, achievementId];
-      const { error: updateError } = await supabase
+      const { data, error } = await supabase
         .from('usuarios')
-        .update({ conquistas_ids: updatedAchievements })
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Usuario;
+    } catch (error) {
+      handleError('addUser', error);
+      throw error;
+    }
+  },
+
+  async saveUsers(users: Usuario[]): Promise<void> {
+    try {
+      if (!users.length) return;
+
+      const payload = users.map((user) => ({
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
+        objetivo: user.objetivo ?? '',
+        foto: user.foto ?? '',
+        conquistas_ids: user.conquistas_ids ?? [],
+      }));
+
+      const { error } = await supabase
+        .from('usuarios')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveUsers', error);
+    }
+  },
+
+  async updateUser(userId: string, updates: Partial<Usuario>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update(updates)
         .eq('id', userId);
 
-      if (updateError) {
-        console.error('Error updating achievements:', updateError);
-        return false;
-      }
-
-      const logged = await db.getLoggedUser();
-      if (logged && logged.id === userId) {
-        await db.setLoggedUser({ ...logged, conquistas_ids: updatedAchievements });
-      }
-      return true;
+      if (error) throw error;
+    } catch (error) {
+      handleError('updateUser', error);
     }
-    return false;
   },
 
-  getExercises: async (): Promise<Exercicio[]> => {
-    const { data, error } = await supabase.from('exercicios').select('*');
-    if (error) {
-      console.error('Error fetching exercises:', error);
-      return INITIAL_EXERCISES;
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('deleteUser', error);
     }
-    if (!data || data.length === 0) {
-      await db.saveExercises(INITIAL_EXERCISES);
-      return INITIAL_EXERCISES;
-    }
-    return data as Exercicio[];
   },
 
-  saveExercises: async (exercises: Exercicio[]) => {
-    const { error } = await supabase.from('exercicios').upsert(exercises);
-    if (error) console.error('Error saving exercises:', error);
-  },
+  async getExercises(): Promise<Exercicio[]> {
+    try {
+      const { data, error } = await supabase
+        .from('exercicios')
+        .select('*')
+        .order('nome', { ascending: true });
 
-  getWorkouts: async (): Promise<Treino[]> => {
-    const { data, error } = await supabase.from('treinos').select('*');
-    if (error) {
-      console.error('Error fetching workouts:', error);
-      return INITIAL_WORKOUTS;
-    }
-    if (!data || data.length === 0) {
-      await db.saveWorkouts(INITIAL_WORKOUTS);
-      return INITIAL_WORKOUTS;
-    }
-    return data as Treino[];
-  },
+      if (error) throw error;
 
-  saveWorkouts: async (workouts: Treino[]) => {
-    const { error } = await supabase.from('treinos').upsert(workouts);
-    if (error) console.error('Error saving workouts:', error);
-  },
-
-  addWorkout: async (workout: Treino) => {
-    const { error } = await supabase.from('treinos').insert(workout);
-    if (error) console.error('Error adding workout:', error);
-  },
-
-  getItems: async (): Promise<FichaTreinoItem[]> => {
-    const { data, error } = await supabase.from('ficha_treino_itens').select('*');
-    if (error) {
-      console.error('Error fetching items:', error);
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        nome: row.nome,
+        grupoId: row.grupo_id,
+        grupoNome: row.grupo_nome,
+        subgrupoId: row.subgrupo_id,
+        subgrupoNome: row.subgrupo_nome,
+        equipamento: row.equipamento,
+        tipo: row.tipo,
+        nivel: row.nivel,
+        video_url: row.video_url,
+        descricao: row.descricao,
+        destaque: row.destaque ?? false,
+      })) as Exercicio[];
+    } catch (error) {
+      handleError('getExercises', error);
       return [];
     }
-    if (!data || data.length === 0) {
-      const initial: FichaTreinoItem[] = [
-        { id: 'i1', user_id: 'aluno1', workout_id: 'A', exercise_id: '001', series: 4, reps: '10', descanso: '60s', ordem: 1, mes: 1 },
-        { id: 'i2', user_id: 'aluno1', workout_id: 'A', exercise_id: '014', series: 3, reps: '12', descanso: '45s', ordem: 2, mes: 1 },
-        { id: 'i3', user_id: 'aluno1', workout_id: 'B', exercise_id: '007', series: 4, reps: '10', descanso: '90s', ordem: 1, mes: 1 },
-        { id: 'i4', user_id: 'aluno1', workout_id: 'B', exercise_id: '008', series: 3, reps: '15', descanso: '60s', ordem: 2, mes: 1 },
-      ];
-      await db.saveItems(initial);
-      return initial;
+  },
+
+  async saveExercises(exercises: Exercicio[]): Promise<void> {
+    try {
+      const payload = exercises.map((ex) => ({
+        id: ex.id,
+        nome: ex.nome,
+        grupo_id: ex.grupoId,
+        grupo_nome: ex.grupoNome,
+        subgrupo_id: ex.subgrupoId,
+        subgrupo_nome: ex.subgrupoNome,
+        equipamento: ex.equipamento,
+        tipo: ex.tipo,
+        nivel: ex.nivel,
+        video_url: ex.video_url,
+        descricao: ex.descricao,
+        destaque: ex.destaque ?? false,
+      }));
+
+      const { error } = await supabase
+        .from('exercicios')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveExercises', error);
     }
-    return data as FichaTreinoItem[];
   },
 
-  saveItems: async (items: FichaTreinoItem[]) => {
-    const { error } = await supabase.from('ficha_treino_itens').upsert(items);
-    if (error) console.error('Error saving items:', error);
-  },
+  async getWorkouts(): Promise<Treino[]> {
+    try {
+      const { data, error } = await supabase
+        .from('treinos')
+        .select('*')
+        .order('id', { ascending: true });
 
-  deleteItems: async (userId: string, workoutId: string, mes: number) => {
-    const { error } = await supabase
-      .from('ficha_treino_itens')
-      .delete()
-      .eq('user_id', userId)
-      .eq('workout_id', workoutId)
-      .eq('mes', mes);
-    if (error) console.error('Error deleting items:', error);
-  },
+      if (error) throw error;
 
-  deleteMonthItems: async (userId: string, mes: number) => {
-    const { error } = await supabase
-      .from('ficha_treino_itens')
-      .delete()
-      .eq('user_id', userId)
-      .eq('mes', mes);
-    if (error) console.error('Error deleting month items:', error);
-  },
-
-  deleteUserItems: async (userId: string) => {
-    const { error } = await supabase
-      .from('ficha_treino_itens')
-      .delete()
-      .eq('user_id', userId);
-    if (error) console.error('Error deleting user items:', error);
-  },
-
-  getAssignments: async (): Promise<Atribuicao[]> => {
-    const { data, error } = await supabase.from('atribuicoes').select('*');
-    if (error) {
-      console.error('Error fetching assignments:', error);
+      return (data || []).map((row: any) => ({
+        id: String(row.id),
+        titulo: row.titulo ?? row.nome ?? `Treino ${row.id}`,
+      })) as Treino[];
+    } catch (error) {
+      handleError('getWorkouts', error);
       return [];
     }
-    if (!data || data.length === 0) {
-       const initial: Atribuicao[] = [{ user_id: 'aluno1', workout_id: 'A', ativo: true, data_inicio: new Date().toISOString() }];
-       await db.saveAssignments(initial);
-       return initial;
-    }
-    return data as Atribuicao[];
   },
 
-  saveAssignments: async (assignments: Atribuicao[]) => {
-    const { error } = await supabase.from('atribuicoes').upsert(assignments);
-    if (error) console.error('Error saving assignments:', error);
-  },
+  async getItems(): Promise<FichaTreinoItem[]> {
+    try {
+      const { data, error } = await supabase
+        .from('ficha_treino_itens')
+        .select('*')
+        .order('mes', { ascending: true })
+        .order('workout_id', { ascending: true })
+        .order('ordem', { ascending: true });
 
-  deleteAssignment: async (userId: string, workoutId: string) => {
-    const { error } = await supabase
-      .from('atribuicoes')
-      .delete()
-      .eq('user_id', userId)
-      .eq('workout_id', workoutId);
-    if (error) console.error('Error deleting assignment:', error);
-  },
+      if (error) throw error;
 
-  getPeriodizacao: async (userId: string): Promise<Periodizacao | null> => {
-    const { data, error } = await supabase
-      .from('periodizacoes')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-    if (error) {
-      if (error.code !== 'PGRST116') console.error('Error fetching periodizacao:', error);
-      return null;
-    }
-    return data as Periodizacao;
-  },
-
-  savePeriodizacao: async (periodizacao: Periodizacao) => {
-    const { error } = await supabase.from('periodizacoes').upsert(periodizacao);
-    if (error) console.error('Error saving periodizacao:', error);
-  },
-
-  deletePeriodizacao: async (userId: string) => {
-    const { error } = await supabase.from('periodizacoes').delete().eq('user_id', userId);
-    if (error) console.error('Error deleting periodizacao:', error);
-  },
-
-  getProgress: async (): Promise<RegistroProgresso[]> => {
-    const { data, error } = await supabase.from('progresso').select('*');
-    if (error) {
-      console.error('Error fetching progress:', error);
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        user_id: row.user_id,
+        workout_id: row.workout_id,
+        exercise_id: row.exercise_id,
+        series: row.series,
+        reps: row.reps,
+        descanso: row.descanso,
+        metodo: row.metodo ?? '',
+        ordem: row.ordem,
+        mes: row.mes,
+      })) as FichaTreinoItem[];
+    } catch (error) {
+      handleError('getItems', error);
       return [];
     }
-    return data as RegistroProgresso[];
   },
 
-  addProgress: async (entry: RegistroProgresso) => {
-    const { error } = await supabase.from('progresso').insert(entry);
-    if (error) console.error('Error adding progress:', error);
+  async saveItems(items: FichaTreinoItem[]): Promise<void> {
+    try {
+      if (!items.length) return;
+
+      const payload = items.map((item) => ({
+        id: item.id,
+        user_id: item.user_id,
+        workout_id: item.workout_id,
+        exercise_id: item.exercise_id,
+        series: item.series,
+        reps: item.reps,
+        descanso: item.descanso,
+        metodo: item.metodo ?? '',
+        ordem: item.ordem,
+        mes: item.mes,
+      }));
+
+      const { error } = await supabase
+        .from('ficha_treino_itens')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveItems', error);
+    }
   },
 
-  getAvaliacoes: async (userId: string): Promise<AvaliacaoFisica[]> => {
-    const { data, error } = await supabase
-      .from('avaliacoes')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: true });
-    if (error) {
-      console.error('Error fetching avaliacoes:', error);
+  async deleteItems(userId: string, workoutId: string, mes: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('ficha_treino_itens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('workout_id', workoutId)
+        .eq('mes', mes);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('deleteItems', error);
+    }
+  },
+
+  async deleteMonthItems(userId: string, mes: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('ficha_treino_itens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('mes', mes);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('deleteMonthItems', error);
+    }
+  },
+
+  async getAssignments(): Promise<Atribuicao[]> {
+    try {
+      const { data, error } = await supabase
+        .from('atribuicoes')
+        .select('user_id, workout_id, ativo, data_inicio, mes_atual')
+        .order('data_inicio', { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as Atribuicao[];
+    } catch (error) {
+      handleError('getAssignments', error);
       return [];
     }
-    return data as AvaliacaoFisica[];
   },
 
-  addAvaliacao: async (entry: AvaliacaoFisica) => {
-    const { error } = await supabase.from('avaliacoes').insert(entry);
-    if (error) console.error('Error adding avaliacao:', error);
-  },
+  async saveAssignments(assignments: Atribuicao[]): Promise<void> {
+    try {
+      if (!assignments.length) return;
 
-  getLoggedUser: async (): Promise<Usuario | null> => {
-    const data = localStorage.getItem(STORAGE_KEYS.LOGGED_USER);
-    if (!data) return null;
-    return JSON.parse(data) as Usuario;
-  },
+      const payload = assignments.map((a) => ({
+        user_id: a.user_id,
+        workout_id: a.workout_id,
+        ativo: a.ativo ?? true,
+        data_inicio: a.data_inicio ?? new Date().toISOString(),
+        mes_atual: a.mes_atual ?? null,
+      }));
 
-  setLoggedUser: async (user: Usuario | null) => {
-    if (user) localStorage.setItem(STORAGE_KEYS.LOGGED_USER, JSON.stringify(user));
-    else localStorage.removeItem(STORAGE_KEYS.LOGGED_USER);
-  },
+      const { error } = await supabase
+        .from('atribuicoes')
+        .upsert(payload, { onConflict: 'user_id,workout_id' });
 
-  getExerciseLoad: async (userId: string, workoutId: string, exerciseId: string): Promise<string> => {
-    const { data, error } = await supabase
-      .from('exercise_loads')
-      .select('load')
-      .eq('user_id', userId)
-      .eq('workout_id', workoutId)
-      .eq('exercise_id', exerciseId)
-      .single();
-    if (error) {
-      if (error.code !== 'PGRST116') console.error('Error fetching exercise load:', error);
-      return '';
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveAssignments', error);
     }
-    return data.load;
   },
 
-  setExerciseLoad: async (userId: string, workoutId: string, exerciseId: string, load: string) => {
-    const { error } = await supabase.from('exercise_loads').upsert({
-      user_id: userId,
-      workout_id: workoutId,
-      exercise_id: exerciseId,
-      load
-    });
-    if (error) console.error('Error saving exercise load:', error);
-  },
+  async getTemplates(): Promise<Record<string, TemplateItem[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .order('id', { ascending: true });
 
-  getSchedule: async (userId: string): Promise<CronogramaSemanal | null> => {
-    const { data, error } = await supabase
-      .from('cronogramas')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-    if (error) {
-      if (error.code !== 'PGRST116') console.error('Error fetching schedule:', error);
-      return null;
-    }
-    return data as CronogramaSemanal;
-  },
+      if (error) throw error;
 
-  saveSchedule: async (schedule: CronogramaSemanal) => {
-    const { error } = await supabase.from('cronogramas').upsert(schedule);
-    if (error) console.error('Error saving schedule:', error);
-  },
+      const mapped: Record<string, TemplateItem[]> = {};
 
-  getStudentNotes: async (userId: string): Promise<string> => {
-    const { data, error } = await supabase
-      .from('student_notes')
-      .select('notes')
-      .eq('user_id', userId)
-      .single();
-    if (error) {
-      if (error.code !== 'PGRST116') console.error('Error fetching student notes:', error);
-      return '';
-    }
-    return data.notes;
-  },
+      (data || []).forEach((row: any) => {
+        mapped[row.id] = Array.isArray(row.itens) ? row.itens : [];
+      });
 
-  saveStudentNotes: async (userId: string, notes: string) => {
-    const { error } = await supabase.from('student_notes').upsert({ user_id: userId, notes });
-    if (error) console.error('Error saving student notes:', error);
-  },
-
-  getTemplates: async (): Promise<Record<string, any[]>> => {
-    const { data, error } = await supabase.from('templates').select('*');
-    if (error) {
-      console.error('Error fetching templates:', error);
+      return mapped;
+    } catch (error) {
+      handleError('getTemplates', error);
       return {};
     }
-    const templates: Record<string, any[]> = {};
-    data.forEach(t => {
-      templates[t.name] = t.data;
-    });
-    return templates;
   },
 
-  saveTemplates: async (templates: Record<string, any[]>) => {
-    const entries = Object.entries(templates).map(([name, data]) => ({ name, data }));
-    const { error } = await supabase.from('templates').upsert(entries);
-    if (error) console.error('Error saving templates:', error);
+  async saveTemplates(templates: Record<string, TemplateItem[]>): Promise<void> {
+    try {
+      const payload = Object.entries(templates).map(([id, itens]) => ({
+        id,
+        nome: `Template ${id}`,
+        itens: itens ?? [],
+      }));
+
+      if (!payload.length) return;
+
+      const { error } = await supabase
+        .from('templates')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveTemplates', error);
+    }
   },
 
-  getLastUser: async (): Promise<string | null> => {
-    return localStorage.getItem(STORAGE_KEYS.LAST_USER);
+  async getPeriodizacao(userId: string): Promise<PeriodizacaoRow | null> {
+    try {
+      const { data, error } = await supabase
+        .from('periodizacoes')
+        .select('user_id, meses')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as PeriodizacaoRow | null;
+    } catch (error) {
+      handleError('getPeriodizacao', error);
+      return null;
+    }
   },
 
-  setLastUser: async (email: string | null) => {
-    if (email) localStorage.setItem(STORAGE_KEYS.LAST_USER, email);
-    else localStorage.removeItem(STORAGE_KEYS.LAST_USER);
+  async savePeriodizacao(periodizacao: PeriodizacaoRow): Promise<void> {
+    try {
+      const payload = {
+        user_id: periodizacao.user_id,
+        meses: periodizacao.meses ?? [],
+      };
+
+      const { error } = await supabase
+        .from('periodizacoes')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('savePeriodizacao', error);
+    }
+  },
+
+  async getProgress() {
+  try {
+    const { data, error } = await supabase
+      .from('progresso')
+      .select('*')
+      .order('data', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => ({
+      id: String(row.id),
+      user_id: row.user_id,
+      workout_id: row.workout_id,
+      exercise_id: row.exercise_id,
+      date: row.data,
+      carga_kg: Number(row.carga ?? 0),
+      reps_realizadas: Number(row.reps ?? 0),
+      notes: row.observacoes ?? '',
+      created_at: row.created_at,
+    }));
+  } catch (error) {
+    handleError('getProgress', error);
+    return [];
   }
+},
+  async saveProgress(progress: any[]): Promise<void> {
+    try {
+      if (!progress.length) return;
+
+      const { error } = await supabase
+        .from('progresso')
+        .upsert(progress);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveProgress', error);
+    }
+  },
+
+  async getExerciseLoads() {
+    try {
+      const { data, error } = await supabase
+        .from('exercise_loads')
+        .select('*')
+        .order('data', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleError('getExerciseLoads', error);
+      return [];
+    }
+  },
+
+  async saveExerciseLoads(loads: any[]): Promise<void> {
+    try {
+      if (!loads.length) return;
+
+      const { error } = await supabase
+        .from('exercise_loads')
+        .upsert(loads);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveExerciseLoads', error);
+    }
+  },
+
+  async getSchedule(userId: string): Promise<CronogramaSemanal | null> {
+    try {
+      const { data, error } = await supabase
+        .from('cronogramas')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as CronogramaSemanal | null;
+    } catch (error) {
+      handleError('getSchedule', error);
+      return null;
+    }
+  },
+
+  async saveSchedule(schedule: CronogramaSemanal): Promise<void> {
+    try {
+      const payload = {
+        user_id: schedule.user_id,
+        segunda: schedule.segunda,
+        terca: schedule.terca,
+        quarta: schedule.quarta,
+        quinta: schedule.quinta,
+        sexta: schedule.sexta,
+        sabado: schedule.sabado,
+        domingo: schedule.domingo,
+      };
+
+      const { error } = await supabase
+        .from('cronogramas')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveSchedule', error);
+    }
+  },
+
+  async getStudentNotes(userId: string): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('student_notes')
+        .select('notes')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.notes ?? '';
+    } catch (error) {
+      handleError('getStudentNotes', error);
+      return '';
+    }
+  },
+
+  async saveStudentNotes(userId: string, notes: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('student_notes')
+        .upsert({ user_id: userId, notes }, { onConflict: 'user_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('saveStudentNotes', error);
+    }
+  },
+
+  async getAvaliacoes(userId: string): Promise<AvaliacaoFisica[]> {
+    try {
+      const { data, error } = await supabase
+        .from('avaliacoes_fisicas')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        user_id: row.user_id,
+        date: row.date,
+        peso: Number(row.peso),
+        gordura_percentual:
+          row.gordura_percentual === null || row.gordura_percentual === undefined
+            ? undefined
+            : Number(row.gordura_percentual),
+        medidas: row.medidas || {},
+      })) as AvaliacaoFisica[];
+    } catch (error) {
+      handleError('getAvaliacoes', error);
+      return [];
+    }
+  },
+
+  async addAvaliacao(evaluation: AvaliacaoFisica): Promise<void> {
+    try {
+      const payload = {
+        id: evaluation.id,
+        user_id: evaluation.user_id,
+        date: evaluation.date,
+        peso: evaluation.peso,
+        gordura_percentual: evaluation.gordura_percentual ?? null,
+        medidas: evaluation.medidas ?? {},
+      };
+
+      const { error } = await supabase
+        .from('avaliacoes_fisicas')
+        .insert([payload]);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('addAvaliacao', error);
+    }
+  },
 };

@@ -1,9 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Usuario, RegistroProgresso, Treino, FichaTreinoItem, Periodizacao, Atribuicao, Exercicio } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Usuario,
+  RegistroProgresso,
+  Treino,
+  FichaTreinoItem,
+  Periodizacao,
+  Atribuicao,
+  Exercicio,
+} from '../types';
 import { db } from '../services/storage';
 import { achievementService } from '../services/achievementService';
 import { useNotification } from '../components/Notification';
-import { ArrowLeft, CheckCircle2, Info, Youtube, Plus, Check, Timer, X, Zap, Dumbbell } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Info,
+  Youtube,
+  Plus,
+  Check,
+  Timer,
+  X,
+  Zap,
+  Dumbbell,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const getYoutubeId = (url: string) => {
@@ -37,21 +56,6 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
   const [activeWorkoutId, setActiveWorkoutId] = useState(initialWorkoutId);
 
-  const getWorkoutMonth = (wId: string, currentAssignments: Atribuicao[]) => {
-    const assignment = currentAssignments.find(a => a.workout_id === wId);
-    if (!assignment) return 1;
-
-    if (assignment.mes_atual !== undefined) return assignment.mes_atual;
-
-    const startDate = new Date(assignment.data_inicio);
-    const now = new Date();
-    const diffMonths =
-      (now.getFullYear() - startDate.getFullYear()) * 12 +
-      (now.getMonth() - startDate.getMonth());
-
-    return Math.min(Math.max(diffMonths, 0), 11) + 1;
-  };
-
   const [seriesCompleted, setSeriesCompleted] = useState<Record<string, number>>({});
   const [exerciseLoads, setExerciseLoads] = useState<Record<string, string>>({});
   const [exerciseReps, setExerciseReps] = useState<Record<string, string>>({});
@@ -63,6 +67,25 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const timerRef = useRef<number | null>(null);
+
+  const getWorkoutMonth = (wId: string, currentAssignments: Atribuicao[]) => {
+    const assignment = currentAssignments.find((a) => a.workout_id === wId);
+    if (!assignment) return 1;
+
+    if ((assignment as any).mes_atual !== undefined && (assignment as any).mes_atual !== null) {
+      return Number((assignment as any).mes_atual) || 1;
+    }
+
+    if (!assignment.data_inicio) return 1;
+
+    const startDate = new Date(assignment.data_inicio);
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - startDate.getFullYear()) * 12 +
+      (now.getMonth() - startDate.getMonth());
+
+    return Math.min(Math.max(diffMonths, 0), 11) + 1;
+  };
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -76,12 +99,24 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
           db.getProgress(),
         ]);
 
-        setAllWorkouts(w);
-        const userAssignments = a.filter(item => item.user_id === user.id && item.ativo);
+        const safeWorkouts = Array.isArray(w) ? w : [];
+        const safeAssignments = Array.isArray(a) ? a : [];
+        const safeExercises = Array.isArray(e) ? e : [];
+        const safeProgress = Array.isArray(prog) ? prog : [];
+
+        setAllWorkouts(safeWorkouts);
+
+        const userAssignments = safeAssignments.filter(
+          (item) => item.user_id === user.id && item.ativo !== false
+        );
+
         setAssignments(userAssignments);
         setPeriodizacao(p);
-        setExercises(e);
-        setAllProgress(prog);
+        setExercises(safeExercises);
+        setAllProgress(safeProgress);
+
+        console.log('TREINO DETALHE - WORKOUTS:', safeWorkouts);
+        console.log('TREINO DETALHE - ASSIGNMENTS DO ALUNO:', userAssignments);
       } catch (error) {
         console.error('Error loading initial workout data:', error);
       } finally {
@@ -92,39 +127,85 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
     loadInitialData();
   }, [user.id]);
 
+  const viewMonth = useMemo(
+    () => getWorkoutMonth(activeWorkoutId, assignments),
+    [activeWorkoutId, assignments]
+  );
+
   useEffect(() => {
     if (loading || !activeWorkoutId) return;
 
     const loadWorkoutDetails = async () => {
-      const viewMonth = getWorkoutMonth(activeWorkoutId, assignments);
-
       try {
         const items = await db.getItems();
+        const safeItems = Array.isArray(items) ? items : [];
 
-        const currentItems = items
-  .filter((i: any) => {
-    const sameUser = i.user_id === user.id;
+        const sameWorkoutItems = safeItems.filter((i: any) => {
+          const sameUser = i.user_id === user.id;
+          const sameWorkout =
+            String(i.workout_id ?? i.ficha ?? '') === String(activeWorkoutId);
+          return sameUser && sameWorkout;
+        });
 
-    const sameWorkout =
-      i.workout_id === activeWorkoutId ||
-      i.ficha === activeWorkoutId;
+        let currentItems = sameWorkoutItems
+          .filter((i: any) => Number(i.mes || 1) === Number(viewMonth))
+          .sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0));
 
-    return sameUser && sameWorkout;
-  })
-  .sort((a: any, b: any) => a.ordem - b.ordem);
+        if (currentItems.length === 0) {
+          currentItems = sameWorkoutItems
+            .filter((i: any) => i.mes === undefined || i.mes === null)
+            .sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0));
+        }
+
+        if (currentItems.length === 0 && sameWorkoutItems.length > 0) {
+          const availableMonths = Array.from(
+            new Set(
+              sameWorkoutItems
+                .map((i: any) => Number(i.mes))
+                .filter((m: number) => !Number.isNaN(m))
+            )
+          ).sort((a, b) => a - b);
+
+          const fallbackMonth =
+            availableMonths.find((m) => m >= Number(viewMonth)) ??
+            availableMonths[availableMonths.length - 1];
+
+          currentItems = sameWorkoutItems
+            .filter((i: any) => Number(i.mes || 1) === Number(fallbackMonth))
+            .sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0));
+        }
+
+        console.log('TREINO DETALHE - ACTIVE WORKOUT:', activeWorkoutId);
+        console.log('TREINO DETALHE - VIEW MONTH:', viewMonth);
+        console.log('TREINO DETALHE - ITEMS DO MES:', currentItems);
 
         setWorkoutItems(currentItems);
 
         const initialLoads: Record<string, string> = {};
         const initialReps: Record<string, string> = {};
 
+        const getExerciseLoadSafe = async (
+          userId: string,
+          workoutId: string,
+          exerciseId: string
+        ) => {
+          const fn = (db as any).getExerciseLoad;
+          if (typeof fn !== 'function') return '';
+          try {
+            const result = await fn(userId, workoutId, exerciseId);
+            return result ?? '';
+          } catch {
+            return '';
+          }
+        };
+
         const loadPromises = currentItems.map(async (item: any) => {
-          initialLoads[item.exercise_id] = await db.getExerciseLoad(
+          initialLoads[item.exercise_id] = await getExerciseLoadSafe(
             user.id,
             activeWorkoutId,
             item.exercise_id
           );
-          initialReps[item.exercise_id] = item.reps?.split('-')[0] || '12';
+          initialReps[item.exercise_id] = String(item.reps?.split('-')[0] || '12');
         });
 
         await Promise.all(loadPromises);
@@ -134,9 +215,9 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
         const today = new Date().toLocaleDateString();
         const todayProgress = allProgress.filter(
-          p =>
+          (p) =>
             p.user_id === user.id &&
-            p.workout_id === activeWorkoutId &&
+            String(p.workout_id) === String(activeWorkoutId) &&
             new Date(p.date).toLocaleDateString() === today
         );
 
@@ -145,7 +226,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
         const completedMap: Record<string, number> = {};
         currentItems.forEach((item: any) => {
           completedMap[item.id] = todayProgress.filter(
-            p => p.exercise_id === item.exercise_id
+            (p) => String(p.exercise_id) === String(item.exercise_id)
           ).length;
         });
 
@@ -156,19 +237,19 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
     };
 
     loadWorkoutDetails();
-  }, [activeWorkoutId, user.id, loading, assignments, allProgress]);
+  }, [activeWorkoutId, user.id, loading, assignments, allProgress, viewMonth]);
 
-  const activeWorkout = allWorkouts.find(t => t.id === activeWorkoutId);
-  const viewMonth = getWorkoutMonth(activeWorkoutId, assignments);
+  const activeWorkout = allWorkouts.find((t) => String(t.id) === String(activeWorkoutId));
 
-  const assignedWorkouts = allWorkouts.filter(w =>
-    assignments.some(a => a.workout_id === w.id)
-  );
+  const assignedWorkouts = useMemo(() => {
+    const ids = Array.from(new Set(assignments.map((a) => String(a.workout_id))));
+    return allWorkouts.filter((w) => ids.includes(String(w.id)));
+  }, [allWorkouts, assignments]);
 
   useEffect(() => {
     if (timerActive && timeLeft > 0) {
       timerRef.current = window.setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
       setTimerActive(false);
@@ -181,13 +262,13 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
   }, [timerActive, timeLeft]);
 
   const parseRestTime = (restStr: string): number => {
-    const num = parseInt(restStr.replace(/\D/g, ''));
-    if (restStr.toLowerCase().includes('min')) return num * 60;
+    const num = parseInt((restStr || '').replace(/\D/g, ''));
+    if ((restStr || '').toLowerCase().includes('min')) return num * 60;
     return num || 60;
   };
 
   const handleRegisterSet = async (itemId: string, exerciseId: string, restTimeStr: string) => {
-    const item = workoutItems.find(i => i.id === itemId);
+    const item = workoutItems.find((i) => i.id === itemId);
     const totalSets = item?.series || 1;
     const currentCompleted = seriesCompleted[itemId] || 0;
 
@@ -197,7 +278,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
     const currentReps = exerciseReps[exerciseId] || '10';
 
     const entry: RegistroProgresso = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       user_id: user.id,
       date: new Date().toISOString(),
       workout_id: activeWorkoutId,
@@ -207,12 +288,28 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
       notes: `Série ${currentCompleted + 1}`,
     };
 
-    await db.addProgress(entry);
-    setAllProgress(prev => [...prev, entry]);
-    achievementService.checkWorkoutAchievements(user.id);
-    setSessionHistory(prev => [...prev, entry]);
-    setSeriesCompleted(prev => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }));
-    await db.setExerciseLoad(user.id, activeWorkoutId, exerciseId, currentLoad);
+    const addProgressFn = (db as any).addProgress;
+    if (typeof addProgressFn === 'function') {
+      await addProgressFn(entry);
+    } else {
+      console.warn('db.addProgress não existe no storage.');
+    }
+
+    setAllProgress((prev) => [...prev, entry]);
+
+    try {
+      achievementService.checkWorkoutAchievements(user.id);
+    } catch (error) {
+      console.error('Erro ao checar conquistas:', error);
+    }
+
+    setSessionHistory((prev) => [...prev, entry]);
+    setSeriesCompleted((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }));
+
+    const setExerciseLoadFn = (db as any).setExerciseLoad;
+    if (typeof setExerciseLoadFn === 'function') {
+      await setExerciseLoadFn(user.id, activeWorkoutId, exerciseId, currentLoad);
+    }
 
     if (currentCompleted + 1 === totalSets) {
       setShowCelebration(true);
@@ -282,6 +379,10 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
     );
   };
 
+  const getExerciseDescription = (ex: Exercicio) => {
+    return ex.descricao || 'Sem observações cadastradas para este exercício.';
+  };
+
   return (
     <div className="pb-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {renderVideoModal()}
@@ -335,19 +436,19 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
         </div>
 
         <div className="flex items-center space-x-3 overflow-x-auto no-scrollbar justify-center">
-          {assignedWorkouts.map(w => {
-            const isActive = activeWorkoutId === w.id;
+          {assignedWorkouts.map((w) => {
+            const isActive = String(activeWorkoutId) === String(w.id);
             const hasProgressToday = allProgress.some(
-              p =>
+              (p) =>
                 p.user_id === user.id &&
-                p.workout_id === w.id &&
+                String(p.workout_id) === String(w.id) &&
                 new Date(p.date).toLocaleDateString() === new Date().toLocaleDateString()
             );
 
             return (
               <button
                 key={w.id}
-                onClick={() => setActiveWorkoutId(w.id)}
+                onClick={() => setActiveWorkoutId(String(w.id))}
                 className={`flex-none w-14 h-14 rounded-2xl font-black text-lg transition-all border-2 flex items-center justify-center relative ${
                   isActive
                     ? 'bg-gold text-[#0A0A0A] border-gold scale-110 shadow-lg shadow-gold/20'
@@ -368,13 +469,15 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
       <div className="mt-8 space-y-6">
         {workoutItems.length > 0 ? (
-          workoutItems.map(item => {
-            const ex = exercises.find(e => e.id === item.exercise_id);
+          workoutItems.map((item) => {
+            const ex = exercises.find((e) => String(e.id) === String(item.exercise_id));
             if (!ex) return null;
 
             const doneSets = seriesCompleted[item.id] || 0;
             const isFullDone = doneSets >= item.series;
-            const exerciseProgress = sessionHistory.filter(p => p.exercise_id === ex.id);
+            const exerciseProgress = sessionHistory.filter(
+              (p) => String(p.exercise_id) === String(ex.id)
+            );
 
             return (
               <div
@@ -404,7 +507,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
                     )}
                   </div>
 
-                  {ex.video_url !== '#' && (
+                  {ex.video_url && ex.video_url !== '#' && (
                     <button
                       onClick={() => setActiveVideo(ex.video_url)}
                       className="text-red-500 p-2.5 bg-red-500/10 rounded-2xl ml-2 active:scale-95 transition-transform"
@@ -449,10 +552,14 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
                         type="number"
                         className="bg-transparent text-white font-black text-2xl text-center outline-none w-full"
                         value={exerciseLoads[ex.id] || ''}
-                        onChange={async e => {
+                        onChange={async (e) => {
                           const val = e.target.value;
-                          setExerciseLoads(prev => ({ ...prev, [ex.id]: val }));
-                          await db.setExerciseLoad(user.id, activeWorkoutId, ex.id, val);
+                          setExerciseLoads((prev) => ({ ...prev, [ex.id]: val }));
+
+                          const setExerciseLoadFn = (db as any).setExerciseLoad;
+                          if (typeof setExerciseLoadFn === 'function') {
+                            await setExerciseLoadFn(user.id, activeWorkoutId, ex.id, val);
+                          }
                         }}
                       />
                     </div>
@@ -465,8 +572,8 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
                         type="number"
                         className="bg-transparent text-white font-black text-2xl text-center outline-none w-full"
                         value={exerciseReps[ex.id] || ''}
-                        onChange={e =>
-                          setExerciseReps(prev => ({ ...prev, [ex.id]: e.target.value }))
+                        onChange={(e) =>
+                          setExerciseReps((prev) => ({ ...prev, [ex.id]: e.target.value }))
                         }
                       />
                     </div>
@@ -491,7 +598,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
                 <div className="flex items-center gap-3">
                   <button
                     className="p-4 bg-[#1A1A1A] rounded-2xl text-gray-500 border border-[#222]"
-                    onClick={() => notify(ex.descricao, 'info')}
+                    onClick={() => notify(getExerciseDescription(ex), 'info')}
                   >
                     <Info size={20} />
                   </button>
@@ -522,7 +629,8 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
           <div className="p-20 text-center bg-[#111] rounded-[2.5rem] border border-[#222]">
             <Dumbbell size={40} className="mx-auto text-gray-800 mb-4" />
             <p className="text-gray-500 font-bold">
-              Nenhum treino programado pelo professor para o Mês {viewMonth} da Ficha {activeWorkout.id}.
+              Nenhum treino programado pelo professor para o Mês {viewMonth} da Ficha{' '}
+              {activeWorkout.id}.
             </p>
           </div>
         )}
@@ -540,7 +648,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
               <div className="absolute top-0 left-0 h-1 bg-gold/30 w-full"></div>
               <div
                 className="absolute top-0 left-0 h-1 bg-gold transition-all duration-1000"
-                style={{ width: `${(timeLeft / initialTime) * 100}%` }}
+                style={{ width: `${initialTime > 0 ? (timeLeft / initialTime) * 100 : 0}%` }}
               ></div>
 
               <div className="flex items-center justify-between">
@@ -568,7 +676,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
                 <div className="flex flex-col space-y-2">
                   <button
-                    onClick={() => setTimeLeft(prev => prev + 30)}
+                    onClick={() => setTimeLeft((prev) => prev + 30)}
                     className="p-3 bg-[#1A1A1A] text-white rounded-xl border border-[#333] text-[10px] font-black uppercase"
                   >
                     +30s

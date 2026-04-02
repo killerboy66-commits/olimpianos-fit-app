@@ -1,16 +1,15 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { db } from '../services/storage';
 import { useNotification } from '../components/Notification';
-import { 
-  Search, 
-  Youtube, 
-  Dumbbell, 
-  Plus, 
-  Check, 
-  Trash2, 
-  Wand2, 
-  X, 
+import {
+  Search,
+  Youtube,
+  Dumbbell,
+  Plus,
+  Check,
+  Trash2,
+  Wand2,
+  X,
   UserPlus,
   Save,
   Hash,
@@ -19,7 +18,6 @@ import {
   Settings2,
   Library,
   Star,
-  ChevronUp,
   ChevronDown,
   ArrowRight,
   RotateCcw,
@@ -27,7 +25,6 @@ import {
   CalendarRange,
   Target,
   Trophy,
-  CalendarCheck,
   CheckCircle2,
   GripVertical,
   Copy,
@@ -35,12 +32,11 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { Exercicio, Treino, FichaTreinoItem, Periodizacao, MesPeriodizacao, Usuario, Atribuicao } from '../types';
+import { Exercicio, FichaTreinoItem, MesPeriodizacao, Usuario, Atribuicao } from '../types';
 import {
-  DndContext, 
+  DndContext,
   closestCorners,
   KeyboardSensor,
-  PointerSensor,
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -60,15 +56,32 @@ import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
 const FASES_PERIODIZACAO = [
-  "Adaptação",
-  "Hipertrofia I",
-  "Hipertrofia II",
-  "Força Máxima",
-  "Resistência Muscular",
-  "Cutting / Definição",
-  "Deload / Recuperação",
-  "Pico de Performance"
+  'Adaptação',
+  'Hipertrofia I',
+  'Hipertrofia II',
+  'Força Máxima',
+  'Resistência Muscular',
+  'Cutting / Definição',
+  'Deload / Recuperação',
+  'Pico de Performance',
 ];
+
+const SHEETS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
+
+const normalizeExercise = (ex: any): Exercicio => ({
+  id: ex.id,
+  nome: ex.nome ?? '',
+  grupoId: ex.grupoId ?? ex.grupo_id ?? '',
+  grupoNome: ex.grupoNome ?? ex.grupo_nome ?? '',
+  subgrupoId: ex.subgrupoId ?? ex.subgrupo_id ?? '',
+  subgrupoNome: ex.subgrupoNome ?? ex.subgrupo_nome ?? '',
+  equipamento: ex.equipamento ?? '',
+  tipo: ex.tipo ?? '',
+  nivel: ex.nivel ?? '',
+  video_url: ex.video_url ?? '',
+  descricao: ex.descricao ?? '',
+  destaque: ex.destaque ?? false,
+});
 
 const SortableItem = ({ item, index, allExercises, toggleSelection, updateConfig, isOverlay = false }: any) => {
   const {
@@ -77,7 +90,7 @@ const SortableItem = ({ item, index, allExercises, toggleSelection, updateConfig
     setNodeRef,
     transform,
     transition,
-    isDragging
+    isDragging,
   } = useSortable({ id: item?.id || 'overlay' });
 
   if (!item) return null;
@@ -85,7 +98,7 @@ const SortableItem = ({ item, index, allExercises, toggleSelection, updateConfig
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
-    zIndex: isDragging ? 50 : (isOverlay ? 100 : 'auto'),
+    zIndex: isDragging ? 50 : isOverlay ? 100 : 'auto',
     opacity: isDragging && !isOverlay ? 0.3 : 1,
   };
 
@@ -93,63 +106,119 @@ const SortableItem = ({ item, index, allExercises, toggleSelection, updateConfig
   if (!ex) return null;
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`card-premium p-3 rounded-2xl border border-[#222] bg-[#111]/50 group relative ${isOverlay ? 'shadow-2xl border-gold/50 bg-[#1A1A1A]' : ''}`}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`card-premium p-3 rounded-2xl border border-[#222] bg-[#111]/50 group relative ${
+        isOverlay ? 'shadow-2xl border-gold/50 bg-[#1A1A1A]' : ''
+      }`}
     >
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center space-x-2 flex-1">
-          <div 
-            {...attributes} 
-            {...listeners} 
+          <div
+            {...attributes}
+            {...listeners}
             className="cursor-grab active:cursor-grabbing p-1.5 bg-[#1A1A1A] rounded-lg border border-[#222] text-gray-600 hover:text-gold transition-colors"
           >
             <GripVertical size={16} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-2">
-              <span className="flex-none w-4 h-4 rounded bg-gold/10 text-gold flex items-center justify-center text-[8px] font-black">{index + 1}</span>
+              <span className="flex-none w-4 h-4 rounded bg-gold/10 text-gold flex items-center justify-center text-[8px] font-black">
+                {index + 1}
+              </span>
               <h4 className="font-black text-white text-xs truncate">{ex.nome}</h4>
             </div>
-            <p className="text-[7px] text-gray-500 font-bold uppercase tracking-widest truncate">{ex.grupoNome} • {ex.equipamento}</p>
+            <p className="text-[7px] text-gray-500 font-bold uppercase tracking-widest truncate">
+              {ex.grupoNome} • {ex.equipamento}
+            </p>
           </div>
         </div>
         {!isOverlay && (
-          <button onClick={() => toggleSelection(item.exerciseId)} className="p-1.5 bg-[#1A1A1A] text-gray-600 hover:text-red-500 rounded-lg border border-[#222] transition-colors"><Trash2 size={12} /></button>
+          <button
+            onClick={() => toggleSelection(item.exerciseId)}
+            className="p-1.5 bg-[#1A1A1A] text-gray-600 hover:text-red-500 rounded-lg border border-[#222] transition-colors"
+          >
+            <Trash2 size={12} />
+          </button>
         )}
       </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         <div className="bg-black/40 p-2 rounded-xl border border-[#222] focus-within:border-gold/50 transition-colors">
-          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center"><Hash size={7} className="mr-1 text-gold" /> Séries</label>
-          <input type="number" className="bg-transparent text-white font-black text-sm outline-none w-full" value={item.series} onChange={(e) => updateConfig(item.id, 'series', parseInt(e.target.value) || 0)} />
+          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center">
+            <Hash size={7} className="mr-1 text-gold" /> Séries
+          </label>
+          <input
+            type="number"
+            className="bg-transparent text-white font-black text-sm outline-none w-full"
+            value={item.series}
+            onChange={(e) => updateConfig(item.id, 'series', parseInt(e.target.value) || 0)}
+          />
         </div>
+
         <div className="bg-black/40 p-2 rounded-xl border border-[#222] focus-within:border-gold/50 transition-colors">
-          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center"><Repeat size={7} className="mr-1 text-gold" /> Reps</label>
-          <input type="text" className="bg-transparent text-white font-black text-sm outline-none w-full" value={item.reps} onChange={(e) => updateConfig(item.id, 'reps', e.target.value)} />
+          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center">
+            <Repeat size={7} className="mr-1 text-gold" /> Reps
+          </label>
+          <input
+            type="text"
+            className="bg-transparent text-white font-black text-sm outline-none w-full"
+            value={item.reps}
+            onChange={(e) => updateConfig(item.id, 'reps', e.target.value)}
+          />
         </div>
+
         <div className="bg-black/40 p-2 rounded-xl border border-[#222] focus-within:border-gold/50 transition-colors">
-          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center"><Timer size={7} className="mr-1 text-gold" /> Pausa</label>
-          <input type="text" className="bg-transparent text-white font-black text-sm outline-none w-full" value={item.descanso} onChange={(e) => updateConfig(item.id, 'descanso', e.target.value)} />
+          <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center">
+            <Timer size={7} className="mr-1 text-gold" /> Pausa
+          </label>
+          <input
+            type="text"
+            className="bg-transparent text-white font-black text-sm outline-none w-full"
+            value={item.descanso}
+            onChange={(e) => updateConfig(item.id, 'descanso', e.target.value)}
+          />
         </div>
       </div>
+
       <div className="mt-1.5 bg-black/40 p-2 rounded-xl border border-[#222] focus-within:border-gold/50 transition-colors relative">
-        <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center"><Settings2 size={7} className="mr-1 text-gold" /> Método / Técnica</label>
+        <label className="text-[6px] text-gray-500 font-black uppercase mb-0.5 tracking-widest flex items-center">
+          <Settings2 size={7} className="mr-1 text-gold" /> Método / Técnica
+        </label>
         <div className="relative">
-          <select 
-            className="bg-transparent text-white font-black text-[10px] outline-none w-full cursor-pointer pr-6 appearance-none" 
-            value={item.metodo || ''} 
+          <select
+            className="bg-transparent text-white font-black text-[10px] outline-none w-full cursor-pointer pr-6 appearance-none"
+            value={item.metodo || ''}
             onChange={(e) => updateConfig(item.id, 'metodo', e.target.value)}
           >
-            <option value="" className="bg-[#111]">Padrão (Séries Normais)</option>
-            <option value="Drop Set" className="bg-[#111]">Drop Set</option>
-            <option value="Cluster Set" className="bg-[#111]">Cluster Set</option>
-            <option value="Rest-Pause" className="bg-[#111]">Rest-Pause</option>
-            <option value="Bi-Set" className="bg-[#111]">Bi-Set</option>
-            <option value="Tri-Set" className="bg-[#111]">Tri-Set</option>
-            <option value="GVT" className="bg-[#111]">GVT (10x10)</option>
-            <option value="FST-7" className="bg-[#111]">FST-7</option>
-            <option value="Pirâmide" className="bg-[#111]">Pirâmide</option>
+            <option value="" className="bg-[#111]">
+              Padrão (Séries Normais)
+            </option>
+            <option value="Drop Set" className="bg-[#111]">
+              Drop Set
+            </option>
+            <option value="Cluster Set" className="bg-[#111]">
+              Cluster Set
+            </option>
+            <option value="Rest-Pause" className="bg-[#111]">
+              Rest-Pause
+            </option>
+            <option value="Bi-Set" className="bg-[#111]">
+              Bi-Set
+            </option>
+            <option value="Tri-Set" className="bg-[#111]">
+              Tri-Set
+            </option>
+            <option value="GVT" className="bg-[#111]">
+              GVT (10x10)
+            </option>
+            <option value="FST-7" className="bg-[#111]">
+              FST-7
+            </option>
+            <option value="Pirâmide" className="bg-[#111]">
+              Pirâmide
+            </option>
           </select>
           <ChevronDown size={10} className="absolute right-0 top-1/2 -translate-y-1/2 text-gold pointer-events-none" />
         </div>
@@ -165,8 +234,14 @@ interface ExerciciosViewProps {
   onUpdate?: () => void;
 }
 
-const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initialSheet, initialMonth, onUpdate }) => {
+const ExerciciosView: React.FC<ExerciciosViewProps> = ({
+  defaultAlunoId,
+  initialSheet,
+  initialMonth,
+  onUpdate,
+}) => {
   const { notify, confirm } = useNotification();
+
   const [user, setUser] = useState<Usuario | null>(null);
   const [allExercises, setAllExercises] = useState<Exercicio[]>([]);
   const [alunos, setAlunos] = useState<Usuario[]>([]);
@@ -175,8 +250,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
   const [assignments, setAssignments] = useState<Atribuicao[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados do Construtor
-  const [activeSheet, setActiveSheet] = useState<string>(initialSheet || 'A'); 
+  const [activeSheet, setActiveSheet] = useState<string>(initialSheet || 'A');
   const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || 1);
   const [subTab, setSubTab] = useState<'library' | 'config' | 'periodizacao'>('library');
   const [searchTerm, setSearchTerm] = useState('');
@@ -185,14 +259,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
   const [targetAlunoId, setTargetAlunoId] = useState<string>(defaultAlunoId || '');
   const [showToast, setShowToast] = useState(false);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
-  
-  // Estados de Dados
-  const [selectedList, setSelectedList] = useState<{id: string, exerciseId: string, series: number, reps: string, descanso: string}[]>([]);
+
+  const [selectedList, setSelectedList] = useState<
+    { id: string; exerciseId: string; series: number; reps: string; descanso: string; metodo?: string }[]
+  >([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [periodizacao, setPeriodizacao] = useState<MesPeriodizacao[]>([]);
   const [showCloneMenu, setShowCloneMenu] = useState<'sheet' | 'month' | null>(null);
   const [sheetCounts, setSheetCounts] = useState<Record<string, number>>({
-    A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0
+    A: 0,
+    B: 0,
+    C: 0,
+    D: 0,
+    E: 0,
+    F: 0,
+    G: 0,
   });
 
   const monthScrollRef = useRef<HTMLDivElement>(null);
@@ -201,15 +282,10 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 5,
-      },
+      activationConstraint: { delay: 200, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -218,7 +294,11 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const grupos = useMemo(() => {
     const map = new Map<string, string>();
-    allExercises.forEach((e) => map.set(e.grupoId, e.grupoNome));
+    allExercises.forEach((e) => {
+      if (e.grupoId && e.grupoNome) {
+        map.set(e.grupoId, e.grupoNome);
+      }
+    });
     const list = Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
     return [...list, ['templates', 'Templates']];
   }, [allExercises]);
@@ -234,13 +314,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
   const filtrados = useMemo(() => {
     if (selectedGroupId === 'templates') return [];
     const term = searchTerm.trim().toLowerCase();
+
     return allExercises.filter((e) => {
-      const okGrupo = selectedGroupId === 'all' ? true : 
-                     (selectedGroupId === 'destaques' ? e.destaque : e.grupoId === selectedGroupId);
+      const okGrupo =
+        selectedGroupId === 'all'
+          ? true
+          : selectedGroupId === 'destaques'
+          ? !!e.destaque
+          : e.grupoId === selectedGroupId;
+
       const okEquip = selectedEquipmentId === 'all' ? true : e.equipamento === selectedEquipmentId;
-      const okBusca = !term ? true : 
-        e.nome.toLowerCase().includes(term) || 
+      const okBusca =
+        !term ||
+        e.nome.toLowerCase().includes(term) ||
         e.subgrupoNome.toLowerCase().includes(term);
+
       return okGrupo && okEquip && okBusca;
     });
   }, [allExercises, selectedGroupId, selectedEquipmentId, searchTerm]);
@@ -255,40 +343,50 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
           db.getUsers(),
           db.getItems(),
           db.getTemplates(),
-          db.getAssignments()
+          db.getAssignments(),
         ]);
+
+        const normalizedExercises = (e || []).map((ex: any) => normalizeExercise(ex));
+
         setUser(u);
-        setAllExercises(e);
-        setAlunos(users.filter(user => user.role === 'aluno'));
-        setItems(i);
-        setTemplates(t);
-        setAssignments(a);
+        setAllExercises(normalizedExercises);
+        setAlunos((users || []).filter((currentUser) => currentUser.role === 'aluno'));
+        setItems(i || []);
+        setTemplates(t || {});
+        setAssignments(a || []);
+
+        console.log('ALL EXERCISES NORMALIZED:', normalizedExercises);
       } catch (error) {
         console.error('Error loading initial data:', error);
+        setAllExercises([]);
       } finally {
         setLoading(false);
       }
     };
+
     loadInitialData();
   }, []);
 
-  const loadSheetCounts = () => {
+  const loadSheetCounts = (sourceItems = items, sourceTemplates = templates) => {
     const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
-    
+
     if (targetAlunoId === 'global') {
-      Object.keys(templates).forEach(id => {
+      Object.keys(sourceTemplates).forEach((id) => {
         if (counts[id] !== undefined) {
-          counts[id] = templates[id].length;
+          counts[id] = sourceTemplates[id]?.length || 0;
         }
       });
-    } else {
-      const filteredItems = items.filter(item => item.user_id === targetAlunoId && item.mes === selectedMonth);
-      filteredItems.forEach(item => {
+    } else if (targetAlunoId) {
+      const filteredItems = sourceItems.filter(
+        (item) => item.user_id === targetAlunoId && item.mes === selectedMonth
+      );
+      filteredItems.forEach((item) => {
         if (counts[item.workout_id] !== undefined) {
           counts[item.workout_id]++;
         }
       });
     }
+
     setSheetCounts(counts);
   };
 
@@ -296,7 +394,6 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
     loadSheetCounts();
   }, [selectedMonth, items, templates, targetAlunoId]);
 
-  // Carrega dados do aluno (Periodização) quando selecionado
   useEffect(() => {
     const loadPeriodizacao = async () => {
       if (targetAlunoId && targetAlunoId !== 'global') {
@@ -308,7 +405,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
             const initial = Array.from({ length: 12 }, (_, i) => ({
               mes: i + 1,
               fase: FASES_PERIODIZACAO[0],
-              objetivo: ''
+              objetivo: '',
             }));
             setPeriodizacao(initial);
           }
@@ -317,10 +414,10 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
         }
       }
     };
+
     loadPeriodizacao();
   }, [targetAlunoId]);
 
-  // Carrega exercícios da aba E MÊS selecionados
   useEffect(() => {
     let mapped: any[] = [];
 
@@ -332,29 +429,39 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
         series: item.series,
         reps: item.reps,
         descanso: item.descanso,
-        metodo: item.metodo || ''
+        metodo: item.metodo || '',
       }));
     } else if (targetAlunoId) {
       const existingItems = items
-        .filter(i => i.user_id === targetAlunoId && i.workout_id === activeSheet && i.mes === selectedMonth)
+        .filter(
+          (i) =>
+            i.user_id === targetAlunoId &&
+            i.workout_id === activeSheet &&
+            i.mes === selectedMonth
+        )
         .sort((a, b) => a.ordem - b.ordem);
-      
-      mapped = existingItems.map(item => ({
+
+      mapped = existingItems.map((item) => ({
         id: item.id,
         exerciseId: item.exercise_id,
         series: item.series,
         reps: item.reps,
         descanso: item.descanso,
-        metodo: item.metodo
+        metodo: item.metodo || '',
       }));
     }
+
     setSelectedList(mapped);
+
     if (subTab !== 'periodizacao') {
       setSubTab(mapped.length > 0 ? 'config' : 'library');
     }
   }, [targetAlunoId, activeSheet, selectedMonth, items, templates]);
 
-  // Segurança: Apenas professor acessa
+  useEffect(() => {
+    setShowCloneMenu(null);
+  }, [activeSheet, selectedMonth, targetAlunoId]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -403,27 +510,35 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
   };
 
   const toggleSelection = (exerciseId: string) => {
-    setSelectedList(prev => {
-      const exists = prev.find(item => item.exerciseId === exerciseId);
+    setSelectedList((prev) => {
+      const exists = prev.some((item) => item.exerciseId === exerciseId);
+
       if (exists) {
-        return prev.filter(item => item.exerciseId !== exerciseId);
-      } else {
-        return [...prev, { 
-          id: Math.random().toString(36).substr(2, 9), 
-          exerciseId, 
-          series: 3, 
-          reps: '12', 
-          descanso: '60s',
-          metodo: ''
-        }];
+        return prev.filter((item) => item.exerciseId !== exerciseId);
       }
+
+      return [
+        ...prev,
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          exerciseId,
+          series: 3,
+          reps: '12',
+          descanso: '60s',
+          metodo: '',
+        },
+      ];
     });
   };
 
-  const updateConfig = (id: string, field: 'series' | 'reps' | 'descanso' | 'metodo', value: string | number) => {
-    setSelectedList(prev => prev.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
+  const updateConfig = (
+    id: string,
+    field: 'series' | 'reps' | 'descanso' | 'metodo',
+    value: string | number
+  ) => {
+    setSelectedList((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
   };
 
   const updatePeriodizacao = (index: number, field: keyof MesPeriodizacao, value: string) => {
@@ -434,10 +549,11 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const handleSavePeriodizacao = async () => {
     if (!targetAlunoId) return;
+
     try {
       await db.savePeriodizacao({
         user_id: targetAlunoId,
-        meses: periodizacao
+        meses: periodizacao,
       });
       triggerSuccessToast();
       onUpdate?.();
@@ -449,34 +565,46 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const handleCopyPreviousMonthPeriodizacao = (idx: number) => {
     if (idx === 0) return;
+
     const prevMonth = periodizacao[idx - 1];
     const newP = [...periodizacao];
-    newP[idx] = { 
-      ...newP[idx], 
-      fase: prevMonth.fase, 
-      objetivo: prevMonth.objetivo
+    newP[idx] = {
+      ...newP[idx],
+      fase: prevMonth.fase,
+      objetivo: prevMonth.objetivo,
     };
     setPeriodizacao(newP);
   };
 
   const handleSaveSheet = async () => {
+    if (!targetAlunoId) {
+      notify('Selecione um aluno antes de salvar a ficha', 'error');
+      return;
+    }
+
     if (targetAlunoId === 'global') {
       const templateData = selectedList.map((item, index) => ({
         id: item.id,
         exercise_id: item.exerciseId,
-        exercise_name: allExercises.find(ex => ex.id === item.exerciseId)?.nome,
+        exercise_name: allExercises.find((ex) => ex.id === item.exerciseId)?.nome,
         series: item.series,
         reps: item.reps,
         descanso: item.descanso,
-        metodo: item.metodo,
-        ordem: index + 1
+        metodo: item.metodo || '',
+        ordem: index + 1,
       }));
-      const updatedTemplates = { ...templates, [activeSheet]: templateData };
+
+      const updatedTemplates = {
+        ...templates,
+        [activeSheet]: templateData,
+      };
+
       try {
         await db.saveTemplates(updatedTemplates);
         setTemplates(updatedTemplates);
-        loadSheetCounts();
+        loadSheetCounts(items, updatedTemplates);
         triggerSuccessToast();
+        onUpdate?.();
       } catch (error) {
         console.error('Error saving templates:', error);
         notify('Erro ao salvar templates', 'error');
@@ -484,45 +612,56 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
       return;
     }
 
-    // Remove apenas itens DESTA ficha NESTE mês para ESTE aluno
+    const cleanedItems = items.filter(
+      (i) =>
+        !(
+          i.user_id === targetAlunoId &&
+          i.workout_id === activeSheet &&
+          i.mes === selectedMonth
+        )
+    );
+
     const newItems: FichaTreinoItem[] = selectedList.map((item, index) => ({
       id: item.id,
-      user_id: targetAlunoId || '',
+      user_id: targetAlunoId,
       workout_id: activeSheet,
       exercise_id: item.exerciseId,
       series: item.series,
       reps: item.reps,
       descanso: item.descanso,
-      metodo: item.metodo,
+      metodo: item.metodo || '',
       ordem: index + 1,
-      mes: selectedMonth
+      mes: selectedMonth,
     }));
-    
+
     try {
-      if (targetAlunoId) {
-        await db.deleteItems(targetAlunoId, activeSheet, selectedMonth);
+      await db.deleteItems(targetAlunoId, activeSheet, selectedMonth);
+
+      if (newItems.length > 0) {
         await db.saveItems(newItems);
       }
 
-      const allItems = items.filter(i => !(i.user_id === targetAlunoId && i.workout_id === activeSheet && i.mes === selectedMonth));
-      const updatedItems = [...allItems, ...newItems];
+      const updatedItems = [...cleanedItems, ...newItems];
       setItems(updatedItems);
 
-      if (targetAlunoId) {
-        const exists = assignments.find(a => a.user_id === targetAlunoId && a.workout_id === activeSheet);
-        if (!exists) {
-          const newAssignment: Atribuicao = {
-            user_id: targetAlunoId,
-            workout_id: activeSheet,
-            ativo: true,
-            data_inicio: new Date().toISOString()
-          };
-          const updatedAssignments = [...assignments, newAssignment];
-          await db.saveAssignments(updatedAssignments);
-          setAssignments(updatedAssignments);
-        }
+      const exists = assignments.find(
+        (a) => a.user_id === targetAlunoId && a.workout_id === activeSheet
+      );
+
+      if (!exists && newItems.length > 0) {
+        const newAssignment: Atribuicao = {
+          user_id: targetAlunoId,
+          workout_id: activeSheet,
+          ativo: true,
+          data_inicio: new Date().toISOString(),
+        };
+
+        const updatedAssignments = [...assignments, newAssignment];
+        await db.saveAssignments(updatedAssignments);
+        setAssignments(updatedAssignments);
       }
-      loadSheetCounts();
+
+      loadSheetCounts(updatedItems, templates);
       triggerSuccessToast();
       onUpdate?.();
     } catch (error) {
@@ -533,13 +672,17 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const handleCloneSheet = async (targetSheet: string) => {
     if (targetSheet === activeSheet) return;
-    
+
     if (targetAlunoId === 'global') {
-      const updatedTemplates = { ...templates, [targetSheet]: [...(templates[activeSheet] || [])] };
+      const updatedTemplates = {
+        ...templates,
+        [targetSheet]: [...(templates[activeSheet] || [])],
+      };
+
       try {
         await db.saveTemplates(updatedTemplates);
         setTemplates(updatedTemplates);
-        loadSheetCounts();
+        loadSheetCounts(items, updatedTemplates);
         triggerSuccessToast();
         setActiveSheet(targetSheet);
         setShowCloneMenu(null);
@@ -550,8 +693,6 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
       return;
     }
 
-    const allItems = items.filter(i => !(i.user_id === targetAlunoId && i.workout_id === targetSheet && i.mes === selectedMonth));
-    
     const clonedItems: FichaTreinoItem[] = selectedList.map((item, index) => ({
       id: Math.random().toString(36).substr(2, 9),
       user_id: targetAlunoId || '',
@@ -560,36 +701,53 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
       series: item.series,
       reps: item.reps,
       descanso: item.descanso,
-      metodo: item.metodo,
+      metodo: item.metodo || '',
       ordem: index + 1,
-      mes: selectedMonth
+      mes: selectedMonth,
     }));
-    
+
     try {
       if (targetAlunoId) {
         await db.deleteItems(targetAlunoId, targetSheet, selectedMonth);
-        await db.saveItems(clonedItems);
+        if (clonedItems.length > 0) {
+          await db.saveItems(clonedItems);
+        }
       }
 
-      const updatedItems = [...items.filter(i => !(i.user_id === targetAlunoId && i.workout_id === targetSheet && i.mes === selectedMonth)), ...clonedItems];
+      const updatedItems = [
+        ...items.filter(
+          (i) =>
+            !(
+              i.user_id === targetAlunoId &&
+              i.workout_id === targetSheet &&
+              i.mes === selectedMonth
+            )
+        ),
+        ...clonedItems,
+      ];
+
       setItems(updatedItems);
 
       if (targetAlunoId) {
-        const exists = assignments.find(a => a.user_id === targetAlunoId && a.workout_id === targetSheet);
-        if (!exists) {
+        const exists = assignments.find(
+          (a) => a.user_id === targetAlunoId && a.workout_id === targetSheet
+        );
+
+        if (!exists && clonedItems.length > 0) {
           const newAssignment: Atribuicao = {
             user_id: targetAlunoId,
             workout_id: targetSheet,
             ativo: true,
-            data_inicio: new Date().toISOString()
+            data_inicio: new Date().toISOString(),
           };
+
           const updatedAssignments = [...assignments, newAssignment];
           await db.saveAssignments(updatedAssignments);
           setAssignments(updatedAssignments);
         }
       }
 
-      loadSheetCounts();
+      loadSheetCounts(updatedItems, templates);
       triggerSuccessToast();
       onUpdate?.();
       setActiveSheet(targetSheet);
@@ -602,39 +760,45 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   const handleCloneMonth = async (targetMonth: number) => {
     if (targetMonth === selectedMonth || targetAlunoId === 'global') return;
-    
-    const allItems = items.filter(i => !(i.user_id === targetAlunoId && i.mes === targetMonth));
-    const currentMonthItems = items.filter(i => i.user_id === targetAlunoId && i.mes === selectedMonth);
-    
-    const clonedItems: FichaTreinoItem[] = currentMonthItems.map(item => ({
+
+    const currentMonthItems = items.filter(
+      (i) => i.user_id === targetAlunoId && i.mes === selectedMonth
+    );
+
+    const clonedItems: FichaTreinoItem[] = currentMonthItems.map((item) => ({
       ...item,
       id: Math.random().toString(36).substr(2, 9),
-      mes: targetMonth
+      mes: targetMonth,
     }));
-    
+
     try {
       if (targetAlunoId) {
-        // Delete all items for the target month before saving cloned ones
         await db.deleteMonthItems(targetAlunoId, targetMonth);
-        await db.saveItems(clonedItems);
+        if (clonedItems.length > 0) {
+          await db.saveItems(clonedItems);
+        }
       }
 
-      const updatedItems = [...items.filter(i => !(i.user_id === targetAlunoId && i.mes === targetMonth)), ...clonedItems];
+      const updatedItems = [
+        ...items.filter((i) => !(i.user_id === targetAlunoId && i.mes === targetMonth)),
+        ...clonedItems,
+      ];
       setItems(updatedItems);
-      
+
       if (targetAlunoId) {
-        // Ensure assignments for all cloned workouts
-        const uniqueWorkouts = Array.from(new Set(clonedItems.map(i => i.workout_id)));
+        const uniqueWorkouts = Array.from(new Set(clonedItems.map((i) => i.workout_id)));
         const newAssignments: Atribuicao[] = [];
-        
-        uniqueWorkouts.forEach(wid => {
-          const exists = assignments.find(a => a.user_id === targetAlunoId && a.workout_id === wid);
+
+        uniqueWorkouts.forEach((wid) => {
+          const exists = assignments.find(
+            (a) => a.user_id === targetAlunoId && a.workout_id === wid
+          );
           if (!exists) {
             newAssignments.push({
               user_id: targetAlunoId,
               workout_id: wid,
               ativo: true,
-              data_inicio: new Date().toISOString()
+              data_inicio: new Date().toISOString(),
             });
           }
         });
@@ -647,19 +811,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
         const currentPeriod = await db.getPeriodizacao(targetAlunoId);
         if (currentPeriod) {
-          const sourceData = currentPeriod.meses.find(m => m.mes === selectedMonth);
+          const sourceData = currentPeriod.meses.find((m) => m.mes === selectedMonth);
           if (sourceData) {
-            const newMeses = currentPeriod.meses.map(m => 
-              m.mes === targetMonth ? { ...m, fase: sourceData.fase, objetivo: sourceData.objetivo } : m
+            const newMeses = currentPeriod.meses.map((m) =>
+              m.mes === targetMonth
+                ? { ...m, fase: sourceData.fase, objetivo: sourceData.objetivo }
+                : m
             );
             const updatedPeriod = { ...currentPeriod, meses: newMeses };
             await db.savePeriodizacao(updatedPeriod);
-            setPeriodizacao(updatedPeriod);
+            setPeriodizacao(updatedPeriod.meses);
           }
         }
       }
-      
-      loadSheetCounts();
+
+      loadSheetCounts(updatedItems, templates);
       triggerSuccessToast();
       onUpdate?.();
       setSelectedMonth(targetMonth);
@@ -674,19 +840,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
     const itemsToLoad = templates[templateId];
     if (!itemsToLoad || itemsToLoad.length === 0) return;
 
-    if (await confirm({ 
-      title: "Carregar Template", 
-      message: `Deseja carregar o Template ${templateId}? Isso substituirá os exercícios atuais.`, 
-      confirmText: "Carregar", 
-      cancelText: "Cancelar" 
-    })) {
-      const mapped = itemsToLoad.map(item => ({
+    if (
+      await confirm({
+        title: 'Carregar Template',
+        message: `Deseja carregar o Template ${templateId}? Isso substituirá os exercícios atuais.`,
+        confirmText: 'Carregar',
+        cancelText: 'Cancelar',
+      })
+    ) {
+      const mapped = itemsToLoad.map((item: any) => ({
         id: Math.random().toString(36).substr(2, 9),
         exerciseId: item.exercise_id,
         series: item.series,
         reps: item.reps,
         descanso: item.descanso,
-        metodo: item.metodo || ''
+        metodo: item.metodo || '',
       }));
       setSelectedList(mapped);
       setSubTab('config');
@@ -705,54 +873,80 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
     setActiveId(null);
 
     if (over && active.id !== over.id) {
-      setSelectedList((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
+      setSelectedList((currentItems) => {
+        const oldIndex = currentItems.findIndex((item) => item.id === active.id);
+        const newIndex = currentItems.findIndex((item) => item.id === over.id);
 
         if (oldIndex !== -1 && newIndex !== -1) {
-          return arrayMove(items, oldIndex, newIndex);
+          return arrayMove(currentItems, oldIndex, newIndex);
         }
-        return items;
+        return currentItems;
       });
     }
   };
 
   const getYoutubeId = (url: string | undefined | null) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+
+    try {
+      const cleanUrl = url.trim();
+
+      const shortDomainMatch = cleanUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      if (shortDomainMatch) return shortDomainMatch[1];
+
+      const shortsMatch = cleanUrl.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (shortsMatch) return shortsMatch[1];
+
+      const watchMatch = cleanUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      if (watchMatch) return watchMatch[1];
+
+      const embedMatch = cleanUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+      if (embedMatch) return embedMatch[1];
+
+      return null;
+    } catch {
+      return null;
+    }
   };
 
   const renderVideoModal = () => {
     if (!activeVideo) return null;
     const videoId = getYoutubeId(activeVideo);
-    
+
     return (
       <div className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-        <button 
+        <button
           onClick={() => setActiveVideo(null)}
           className="absolute top-6 right-6 w-12 h-12 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-red-500/20 transition-all z-10"
         >
           <X size={24} />
         </button>
-        
+
         <div className="w-full max-w-4xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10">
           {videoId ? (
-            <iframe 
-              width="100%" 
-              height="100%" 
-              src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-              title="YouTube video player" 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            <iframe
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
               <Youtube size={64} className="mb-4 opacity-20" />
-              <p className="font-black uppercase tracking-widest text-xs">Vídeo não disponível ou formato inválido</p>
-              <a href={activeVideo} target="_blank" rel="noopener noreferrer" className="mt-4 text-gold underline text-xs font-bold">Abrir link externo</a>
+              <p className="font-black uppercase tracking-widest text-xs">
+                Vídeo não disponível ou formato inválido
+              </p>
+              <a
+                href={activeVideo}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 text-gold underline text-xs font-bold"
+              >
+                Abrir link externo
+              </a>
             </div>
           )}
         </div>
@@ -762,18 +956,17 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-40">
-      
-      {/* Modal de Vídeo */}
       {renderVideoModal()}
 
-      {/* Toast de Sucesso Premium */}
       {showToast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-10 duration-300">
           <div className="bg-[#111] border-2 border-gold rounded-2xl px-6 py-4 shadow-2xl flex items-center space-x-3 backdrop-blur-xl">
             <div className="bg-gold/20 p-2 rounded-full">
               <CheckCircle2 className="text-gold" size={20} />
             </div>
-            <span className="text-white font-black uppercase text-xs tracking-widest">Salvo com sucesso!</span>
+            <span className="text-white font-black uppercase text-xs tracking-widest">
+              Salvo com sucesso!
+            </span>
           </div>
         </div>
       )}
@@ -785,14 +978,16 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
             <CalendarRange size={24} strokeWidth={2.5} />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-black italic uppercase text-white tracking-tighter leading-tight">Ciclo de Treino Olimpiano</h2>
+            <h2 className="text-xl sm:text-2xl font-black italic uppercase text-white tracking-tighter leading-tight">
+              Ciclo de Treino Olimpiano
+            </h2>
             <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] flex items-center">
               <span className="w-6 h-[1px] bg-gold/30 mr-2"></span>
               Jornada de 12 meses do atleta
             </p>
           </div>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 relative z-10">
           <div className="flex flex-col">
             <label className="text-[9px] font-black text-gold uppercase tracking-[0.2em] mb-2 flex items-center ml-1 opacity-70">
@@ -800,16 +995,22 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
             </label>
             <div className="flex items-center gap-3">
               <div className="relative group flex-1">
-                <select 
+                <select
                   className="w-full bg-black/60 border border-white/10 rounded-2xl py-4 pl-5 pr-12 text-xs font-black text-white outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 transition-all appearance-none min-w-[200px] cursor-pointer group-hover:border-white/20"
                   value={targetAlunoId}
                   onChange={(e) => setTargetAlunoId(e.target.value)}
                 >
-                  <option value="" className="bg-[#0A0A0A]">Selecione um Aluno</option>
-                  <option value="global" className="bg-[#0A0A0A] text-gold font-black">⭐ BIBLIOTECA GLOBAL (TEMPLATES)</option>
+                  <option value="" className="bg-[#0A0A0A]">
+                    Selecione um Aluno
+                  </option>
+                  <option value="global" className="bg-[#0A0A0A] text-gold font-black">
+                    ⭐ BIBLIOTECA GLOBAL (TEMPLATES)
+                  </option>
                   <optgroup label="ALUNOS ATIVOS" className="bg-[#0A0A0A] text-gray-500">
-                    {alunos.map(aluno => (
-                      <option key={aluno.id} value={aluno.id} className="bg-[#0A0A0A] text-white">{aluno.nome.toUpperCase()}</option>
+                    {alunos.map((aluno) => (
+                      <option key={aluno.id} value={aluno.id} className="bg-[#0A0A0A] text-white">
+                        {aluno.nome.toUpperCase()}
+                      </option>
                     ))}
                   </optgroup>
                 </select>
@@ -822,15 +1023,12 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
         </div>
       </header>
 
-      {/* PAINEL DE CONTROLE OTIMIZADO */}
       <div className="sticky top-[72px] z-40 -mx-4 px-4 py-4 bg-[#0A0A0A]/95 backdrop-blur-3xl border-b border-white/5 shadow-2xl">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-6">
-          
-          {/* Busca Integrada */}
           <div className="relative flex-1 group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-gold transition-all duration-300" size={18} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Buscar exercício na biblioteca..."
               className="w-full bg-black/60 border border-white/10 rounded-2xl py-3.5 pl-14 pr-6 focus:border-gold focus:ring-4 focus:ring-gold/5 outline-none transition-all text-xs text-white font-black uppercase tracking-widest placeholder:text-gray-700 placeholder:font-bold"
               value={searchTerm}
@@ -840,32 +1038,35 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 overflow-x-auto gold-scrollbar pb-2">
-              {/* Seletor de Mês Estilizado */}
               {targetAlunoId !== 'global' && (
                 <div className="relative group/scroll-month flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/5 shrink-0 shadow-inner">
-                  <button 
+                  <button
                     onClick={() => scrollMonths('left')}
                     className="absolute left-0 z-10 w-6 h-6 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll-month:opacity-100 transition-opacity -ml-2"
                   >
                     <ChevronLeft size={14} />
                   </button>
 
-                  <div 
+                  <div
                     ref={monthScrollRef}
                     className="flex items-center space-x-1 overflow-x-auto no-scrollbar max-w-[110px] xs:max-w-[150px] sm:max-w-[220px] scroll-smooth"
                   >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                      <button 
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                      <button
                         key={m}
                         onClick={() => setSelectedMonth(m)}
-                        className={`min-w-[36px] h-8 rounded-lg font-black text-[10px] transition-all shrink-0 flex items-center justify-center ${selectedMonth === m ? 'bg-gold text-black shadow-lg shadow-gold/20 scale-105' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                        className={`min-w-[36px] h-8 rounded-lg font-black text-[10px] transition-all shrink-0 flex items-center justify-center ${
+                          selectedMonth === m
+                            ? 'bg-gold text-black shadow-lg shadow-gold/20 scale-105'
+                            : 'text-gray-500 hover:text-white hover:bg-white/5'
+                        }`}
                       >
                         M{m}
                       </button>
                     ))}
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => scrollMonths('right')}
                     className="absolute right-0 z-10 w-6 h-6 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll-month:opacity-100 transition-opacity -mr-2"
                   >
@@ -874,20 +1075,19 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                 </div>
               )}
 
-              {/* Seletor de Fichas (ABC) Premium */}
               <div className="relative group/scroll-sheet flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/5 shrink-0 shadow-inner">
-                <button 
+                <button
                   onClick={() => scrollSheets('left')}
                   className="absolute left-0 z-10 w-6 h-6 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll-sheet:opacity-100 transition-opacity -ml-2"
                 >
                   <ChevronLeft size={14} />
                 </button>
 
-                <div 
+                <div
                   ref={sheetScrollRef}
                   className="flex items-center overflow-x-auto no-scrollbar max-w-[110px] xs:max-w-[150px] sm:max-w-[220px] scroll-smooth"
                 >
-                  {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(letter => {
+                  {SHEETS.map((letter) => {
                     const isActive = activeSheet === letter;
                     const count = sheetCounts[letter] || 0;
                     return (
@@ -895,12 +1095,14 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                         key={letter}
                         onClick={() => setActiveSheet(letter)}
                         className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all relative mx-0.5 shrink-0 flex items-center justify-center ${
-                          isActive ? 'bg-white text-black shadow-2xl scale-110 z-10' : 'text-gray-500 hover:text-white hover:bg-white/5'
+                          isActive
+                            ? 'bg-white text-black shadow-2xl scale-110 z-10'
+                            : 'text-gray-500 hover:text-white hover:bg-white/5'
                         }`}
                       >
                         {letter}
                         {count > 0 && (
-                          <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[8px] font-black flex items-center justify-center border-2 border-[#0A0A0A] ${isActive ? 'bg-gold text-black' : 'bg-gold text-black'}`}>
+                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[8px] font-black flex items-center justify-center border-2 border-[#0A0A0A] bg-gold text-black">
                             {count}
                           </span>
                         )}
@@ -909,7 +1111,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                   })}
                 </div>
 
-                <button 
+                <button
                   onClick={() => scrollSheets('right')}
                   className="absolute right-0 z-10 w-6 h-6 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll-sheet:opacity-100 transition-opacity -mr-2"
                 >
@@ -918,18 +1120,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               </div>
             </div>
 
-            {/* Tabs de Navegação */}
             <div className="flex bg-black/60 p-1 rounded-2xl border border-white/10 shrink-0 shadow-inner w-fit">
               {[
                 { id: 'library', icon: Library, label: 'Biblioteca' },
                 { id: 'config', icon: Target, label: 'Ajuste' },
-                ...(targetAlunoId !== 'global' ? [{ id: 'periodizacao', icon: CalendarDays, label: 'Ciclo' }] : [])
-              ].map(tab => (
+                ...(targetAlunoId !== 'global'
+                  ? [{ id: 'periodizacao', icon: CalendarDays, label: 'Ciclo' }]
+                  : []),
+              ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setSubTab(tab.id as any)}
                   className={`px-4 py-2 rounded-xl flex items-center space-x-2 transition-all shrink-0 ${
-                    subTab === tab.id ? 'bg-gold/10 text-gold shadow-lg shadow-gold/5' : 'text-gray-600 hover:text-gray-400'
+                    subTab === tab.id
+                      ? 'bg-gold/10 text-gold shadow-lg shadow-gold/5'
+                      : 'text-gray-600 hover:text-gray-400'
                   }`}
                 >
                   <tab.icon size={14} />
@@ -944,24 +1149,33 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
       {subTab === 'library' && (
         <section className="space-y-6 animate-in fade-in duration-300">
           <div className="relative flex items-center group/scroll">
-            <button 
+            <button
               onClick={() => scrollGroups('left')}
               className="absolute left-0 z-10 w-8 h-8 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll:opacity-100 transition-opacity -ml-3"
             >
               <ChevronLeft size={18} />
             </button>
 
-            <div 
+            <div
               ref={groupScrollRef}
               className="flex items-center space-x-3 overflow-x-auto gold-scrollbar pb-4 scroll-smooth"
             >
-              <button onClick={() => setSelectedGroupId('all')} className={`flex-none px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all border-2 ${selectedGroupId === 'all' ? 'bg-gold border-gold text-black shadow-xl shadow-gold/20' : 'bg-[#111] border-white/5 text-gray-600 hover:border-gold/30'}`}>Todos</button>
-              
-              <button 
-                onClick={() => setSelectedGroupId('destaques')} 
+              <button
+                onClick={() => setSelectedGroupId('all')}
+                className={`flex-none px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all border-2 ${
+                  selectedGroupId === 'all'
+                    ? 'bg-gold border-gold text-black shadow-xl shadow-gold/20'
+                    : 'bg-[#111] border-white/5 text-gray-600 hover:border-gold/30'
+                }`}
+              >
+                Todos
+              </button>
+
+              <button
+                onClick={() => setSelectedGroupId('destaques')}
                 className={`flex-none px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all border-2 flex items-center space-x-2 ${
-                  selectedGroupId === 'destaques' 
-                    ? 'bg-amber-500 border-amber-500 text-black shadow-amber-500/20' 
+                  selectedGroupId === 'destaques'
+                    ? 'bg-amber-500 border-amber-500 text-black shadow-amber-500/20'
                     : 'bg-[#111] border-white/5 text-gray-600 hover:border-amber-500/30'
                 }`}
               >
@@ -977,15 +1191,16 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                   bracos: 'bg-purple-600 border-purple-600 text-white shadow-purple-600/20',
                   pernas: 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-600/20',
                   'abdomen-core': 'bg-cyan-600 border-cyan-600 text-white shadow-cyan-600/20',
-                  funcional: 'bg-yellow-600 border-yellow-600 text-white shadow-yellow-600/20'
+                  funcional: 'bg-yellow-600 border-yellow-600 text-white shadow-yellow-600/20',
                 };
+
                 return (
-                  <button 
-                    key={id} 
-                    onClick={() => setSelectedGroupId(id)} 
+                  <button
+                    key={id}
+                    onClick={() => setSelectedGroupId(id)}
                     className={`flex-none px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all border-2 ${
-                      selectedGroupId === id 
-                        ? groupColors[id] || 'bg-gold border-gold text-black shadow-gold/20' 
+                      selectedGroupId === id
+                        ? groupColors[id] || 'bg-gold border-gold text-black shadow-gold/20'
                         : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/20'
                     }`}
                   >
@@ -993,11 +1208,12 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                   </button>
                 );
               })}
-              <button 
-                onClick={() => setSelectedGroupId('templates')} 
+
+              <button
+                onClick={() => setSelectedGroupId('templates')}
                 className={`flex-none px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all border-2 flex items-center space-x-2 ${
-                  selectedGroupId === 'templates' 
-                    ? 'bg-white border-white text-black shadow-white/20' 
+                  selectedGroupId === 'templates'
+                    ? 'bg-white border-white text-black shadow-white/20'
                     : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/20'
                 }`}
               >
@@ -1006,7 +1222,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               </button>
             </div>
 
-            <button 
+            <button
               onClick={() => scrollGroups('right')}
               className="absolute right-0 z-10 w-8 h-8 bg-black/80 border border-white/10 rounded-full flex items-center justify-center text-gold opacity-0 group-hover/scroll:opacity-100 transition-opacity -mr-3"
             >
@@ -1014,24 +1230,26 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
             </button>
           </div>
 
-          {/* Filtros de Equipamentos */}
           <div className="flex items-center gap-2 overflow-x-auto gold-scrollbar pb-4 -mb-4 px-1">
-            <button 
-              onClick={() => setSelectedEquipmentId('all')} 
-              className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2 flex items-center space-x-2 ${selectedEquipmentId === 'all' ? 'bg-white/10 border-white/20 text-white shadow-lg shadow-white/5' : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/10'}`}
+            <button
+              onClick={() => setSelectedEquipmentId('all')}
+              className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2 flex items-center space-x-2 ${
+                selectedEquipmentId === 'all'
+                  ? 'bg-white/10 border-white/20 text-white shadow-lg shadow-white/5'
+                  : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/10'
+              }`}
             >
               <Dumbbell size={12} />
               <span>Todos</span>
             </button>
-            
-            {/* Filtros Sugeridos pelo Usuário */}
+
             {['Halter', 'Barra', 'Máquina', 'Peso do Corpo'].map((equip) => (
               <button
                 key={equip}
                 onClick={() => setSelectedEquipmentId(equip)}
                 className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2 ${
-                  selectedEquipmentId === equip 
-                    ? 'bg-gold/20 border-gold/40 text-gold shadow-lg shadow-gold/5' 
+                  selectedEquipmentId === equip
+                    ? 'bg-gold/20 border-gold/40 text-gold shadow-lg shadow-gold/5'
                     : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/10'
                 }`}
               >
@@ -1041,29 +1259,42 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
             <div className="w-px h-6 bg-white/10 mx-2 shrink-0"></div>
 
-            {equipamentos.filter(e => !['Halter', 'Barra', 'Máquina', 'Peso do Corpo'].includes(e)).map((equip) => (
-              <button
-                key={equip}
-                onClick={() => setSelectedEquipmentId(equip)}
-                className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2 ${
-                  selectedEquipmentId === equip 
-                    ? 'bg-white/10 border-white/20 text-white shadow-lg shadow-white/5' 
-                    : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/10'
-                }`}
-              >
-                {equip}
-              </button>
-            ))}
+            {equipamentos
+              .filter((e) => !['Halter', 'Barra', 'Máquina', 'Peso do Corpo'].includes(e))
+              .map((equip) => (
+                <button
+                  key={equip}
+                  onClick={() => setSelectedEquipmentId(equip)}
+                  className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2 ${
+                    selectedEquipmentId === equip
+                      ? 'bg-white/10 border-white/20 text-white shadow-lg shadow-white/5'
+                      : 'bg-[#111] border-white/5 text-gray-600 hover:border-white/10'
+                  }`}
+                >
+                  {equip}
+                </button>
+              ))}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {selectedGroupId === 'templates' ? (
-              ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(t => {
+              SHEETS.map((t) => {
                 const templateItems = templates[t] || [];
                 const count = templateItems.length;
+
                 return (
-                  <div key={t} className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-center text-center group hover:border-gold/30 transition-all cursor-pointer" onClick={() => handleLoadTemplate(t)}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 transition-all ${count > 0 ? 'bg-gold text-black shadow-lg shadow-gold/20' : 'bg-white/5 text-gray-600 group-hover:bg-white/10'}`}>
+                  <div
+                    key={t}
+                    className="bg-[#111] border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-center text-center group hover:border-gold/30 transition-all cursor-pointer"
+                    onClick={() => handleLoadTemplate(t)}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 transition-all ${
+                        count > 0
+                          ? 'bg-gold text-black shadow-lg shadow-gold/20'
+                          : 'bg-white/5 text-gray-600 group-hover:bg-white/10'
+                      }`}
+                    >
                       <Layers size={20} />
                     </div>
                     <h4 className="text-white font-black uppercase tracking-widest text-xs">Template {t}</h4>
@@ -1080,16 +1311,18 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               })
             ) : (
               filtrados.map((ex) => {
-                const isSelected = !!selectedList.find(item => item.exerciseId === ex.id);
+                const isSelected = !!selectedList.find((item) => item.exerciseId === ex.id);
                 const ytId = getYoutubeId(ex.video_url);
-                const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : `https://picsum.photos/seed/${ex.id}/400/225`;
+                const thumbUrl = ytId
+                  ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+                  : `https://picsum.photos/seed/${ex.id}/400/225`;
 
                 return (
-                  <div 
-                    key={ex.id} 
+                  <div
+                    key={ex.id}
                     className={`bg-[#111] border rounded-[2rem] p-4 transition-all duration-500 hover:border-gold/50 flex flex-col gap-4 group/card relative overflow-hidden ${
-                      isSelected 
-                        ? 'border-gold/40 bg-gradient-to-b from-gold/10 to-transparent shadow-2xl shadow-gold/5' 
+                      isSelected
+                        ? 'border-gold/40 bg-gradient-to-b from-gold/10 to-transparent shadow-2xl shadow-gold/5'
                         : 'border-white/5 hover:bg-white/[0.02]'
                     }`}
                   >
@@ -1099,50 +1332,60 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
                     <div className="flex items-start justify-between gap-3 relative z-10">
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-[13px] font-black text-white leading-tight group-hover/card:text-gold transition-colors line-clamp-2 uppercase tracking-tighter">{ex.nome}</h4>
+                        <h4 className="text-[13px] font-black text-white leading-tight group-hover/card:text-gold transition-colors line-clamp-2 uppercase tracking-tighter">
+                          {ex.nome}
+                        </h4>
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
                           <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg border border-white/5">
                             {ex.equipamento}
                           </span>
-                          <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${
-                            ex.grupoId === 'peito' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                            ex.grupoId === 'costas' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            ex.grupoId === 'pernas' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                            'bg-gold/10 text-gold/80 border-gold/20'
-                          }`}>
+                          <span
+                            className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ${
+                              ex.grupoId === 'peito'
+                                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                : ex.grupoId === 'costas'
+                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                : ex.grupoId === 'pernas'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-gold/10 text-gold/80 border-gold/20'
+                            }`}
+                          >
                             {ex.grupoNome}
                           </span>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => toggleSelection(ex.id)} 
+
+                      <button
+                        onClick={() => toggleSelection(ex.id)}
                         className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 shrink-0 ${
-                          isSelected 
-                            ? 'bg-gold text-black shadow-2xl shadow-gold/40 scale-110 rotate-[360deg]' 
+                          isSelected
+                            ? 'bg-gold text-black shadow-2xl shadow-gold/40 scale-110 rotate-[360deg]'
                             : 'bg-white/5 text-gray-600 hover:text-gold hover:bg-gold/10 hover:scale-110'
                         }`}
                       >
                         {isSelected ? <Check size={22} strokeWidth={4} /> : <Plus size={22} strokeWidth={3} />}
                       </button>
                     </div>
-                    
+
                     <div className="relative h-28 rounded-2xl overflow-hidden group/thumb border border-white/10 shadow-inner">
-                      <img 
-                        src={thumbUrl} 
+                      <img
+                        src={thumbUrl}
                         alt={ex.nome}
                         className="w-full h-full object-cover opacity-40 group-hover/thumb:scale-110 group-hover/thumb:opacity-60 transition-all duration-700"
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-                      
+
                       <div className="absolute bottom-3 left-3 flex items-center space-x-2">
                         <div className="bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 flex items-center space-x-1">
                           <Target size={10} className="text-gold" />
-                          <span className="text-[8px] font-black text-white uppercase tracking-tighter">{ex.subgrupoNome}</span>
+                          <span className="text-[8px] font-black text-white uppercase tracking-tighter">
+                            {ex.subgrupoNome}
+                          </span>
                         </div>
                       </div>
 
-                      <button 
+                      <button
                         onClick={() => setActiveVideo(ex.video_url)}
                         className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-all duration-500"
                       >
@@ -1153,10 +1396,14 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                     </div>
 
                     <div className="flex items-center justify-between mt-1 px-1">
-                       <p className="text-[8px] font-bold text-gray-600 uppercase tracking-widest italic">Execução Técnica</p>
-                       <div className="flex space-x-1">
-                          {[1,2,3].map(i => <div key={i} className="w-1 h-1 rounded-full bg-gold/20"></div>)}
-                       </div>
+                      <p className="text-[8px] font-bold text-gray-600 uppercase tracking-widest italic">
+                        Execução Técnica
+                      </p>
+                      <div className="flex space-x-1">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="w-1 h-1 rounded-full bg-gold/20"></div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1166,8 +1413,13 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
           {selectedCount > 0 && (
             <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10">
-              <button onClick={() => setSubTab('config')} className="bg-gold text-black px-8 py-5 rounded-full font-black uppercase tracking-widest flex items-center space-x-3 shadow-2xl active:scale-95 transition-all">
-                <span>Revisar Ficha {activeSheet} - Mês {selectedMonth}</span>
+              <button
+                onClick={() => setSubTab('config')}
+                className="bg-gold text-black px-8 py-5 rounded-full font-black uppercase tracking-widest flex items-center space-x-3 shadow-2xl active:scale-95 transition-all"
+              >
+                <span>
+                  Revisar Ficha {activeSheet} - Mês {selectedMonth}
+                </span>
                 <ArrowRight size={20} />
               </button>
             </div>
@@ -1179,31 +1431,38 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
         <section className="space-y-4 animate-in slide-in-from-right duration-300">
           <div className="flex flex-col gap-4 items-center text-center">
             <div>
-               <h3 className="text-sm font-black italic uppercase text-white">Ajuste Fino: Mês {selectedMonth} | Ficha {activeSheet}</h3>
-               <p className="text-[10px] text-gray-500 font-bold uppercase">Configure o volume para este período específico.</p>
+              <h3 className="text-sm font-black italic uppercase text-white">
+                Ajuste Fino: Mês {selectedMonth} | Ficha {activeSheet}
+              </h3>
+              <p className="text-[10px] text-gray-500 font-bold uppercase">
+                Configure o volume para este período específico.
+              </p>
             </div>
+
             <div className="flex space-x-2 justify-center">
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowCloneMenu(showCloneMenu === 'sheet' ? null : 'sheet')}
                   className="bg-[#1A1A1A] text-gold border border-gold/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center space-x-2 hover:bg-gold/10 transition-all"
                 >
                   <Copy size={14} />
                   <span>Clonar Ficha</span>
                 </button>
-                
+
                 {showCloneMenu === 'sheet' && (
                   <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-200">
-                    <p className="text-[8px] font-black text-gray-500 uppercase p-2 tracking-widest">Clonar para:</p>
+                    <p className="text-[8px] font-black text-gray-500 uppercase p-2 tracking-widest">
+                      Clonar para:
+                    </p>
                     <div className="grid grid-cols-4 gap-1">
-                      {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(letter => (
+                      {SHEETS.map((letter) => (
                         <button
                           key={letter}
                           onClick={() => handleCloneSheet(letter)}
                           disabled={letter === activeSheet}
                           className={`py-2 rounded-lg text-[10px] font-black transition-all ${
-                            letter === activeSheet 
-                              ? 'bg-white/5 text-gray-700 cursor-not-allowed' 
+                            letter === activeSheet
+                              ? 'bg-white/5 text-gray-700 cursor-not-allowed'
                               : 'bg-black/40 text-white hover:bg-gold hover:text-black'
                           }`}
                         >
@@ -1216,7 +1475,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               </div>
 
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowCloneMenu(showCloneMenu === 'month' ? null : 'month')}
                   className="bg-[#1A1A1A] text-emerald-500 border border-emerald-500/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center space-x-2 hover:bg-emerald-500/10 transition-all"
                 >
@@ -1226,16 +1485,18 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
 
                 {showCloneMenu === 'month' && (
                   <div className="absolute right-0 mt-2 w-56 bg-[#111] border border-white/10 rounded-2xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-200">
-                    <p className="text-[8px] font-black text-gray-500 uppercase p-2 tracking-widest">Clonar para:</p>
+                    <p className="text-[8px] font-black text-gray-500 uppercase p-2 tracking-widest">
+                      Clonar para:
+                    </p>
                     <div className="grid grid-cols-4 gap-1">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
                         <button
                           key={m}
                           onClick={() => handleCloneMonth(m)}
                           disabled={m === selectedMonth}
                           className={`py-2 rounded-lg text-[10px] font-black transition-all ${
-                            m === selectedMonth 
-                              ? 'bg-white/5 text-gray-700 cursor-not-allowed' 
+                            m === selectedMonth
+                              ? 'bg-white/5 text-gray-700 cursor-not-allowed'
                               : 'bg-black/40 text-white hover:bg-emerald-500 hover:text-white'
                           }`}
                         >
@@ -1248,23 +1509,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               </div>
             </div>
           </div>
+
           <div className="space-y-2">
-            <DndContext 
+            <DndContext
               sensors={sensors}
               collisionDetection={closestCorners}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               modifiers={[restrictToVerticalAxis]}
             >
-              <SortableContext 
-                items={selectedList.map(i => i.id)}
-                strategy={verticalListSortingStrategy}
-              >
+              <SortableContext items={selectedList.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                 {selectedList.map((item, index) => (
-                  <SortableItem 
-                    key={item.id} 
-                    item={item} 
-                    index={index} 
+                  <SortableItem
+                    key={item.id}
+                    item={item}
+                    index={index}
                     allExercises={allExercises}
                     toggleSelection={toggleSelection}
                     updateConfig={updateConfig}
@@ -1272,19 +1531,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                 ))}
               </SortableContext>
 
-              <DragOverlay dropAnimation={{
-                sideEffects: defaultDropAnimationSideEffects({
-                  styles: {
-                    active: {
-                      opacity: '0.3',
+              <DragOverlay
+                dropAnimation={{
+                  sideEffects: defaultDropAnimationSideEffects({
+                    styles: {
+                      active: {
+                        opacity: '0.3',
+                      },
                     },
-                  },
-                }),
-              }}>
+                  }),
+                }}
+              >
                 {activeId ? (
-                  <SortableItem 
-                    item={selectedList.find(i => i.id === activeId)} 
-                    index={selectedList.findIndex(i => i.id === activeId)}
+                  <SortableItem
+                    item={selectedList.find((i) => i.id === activeId)}
+                    index={selectedList.findIndex((i) => i.id === activeId)}
                     allExercises={allExercises}
                     toggleSelection={toggleSelection}
                     updateConfig={updateConfig}
@@ -1294,27 +1555,40 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
               </DragOverlay>
             </DndContext>
           </div>
+
           <div className="flex gap-3">
-            <button onClick={handleSaveSheet} className="flex-[2] bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-emerald-600/20 flex items-center justify-center space-x-2 active:scale-95 transition-all hover:brightness-110">
+            <button
+              onClick={handleSaveSheet}
+              className="flex-[2] bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-emerald-600/20 flex items-center justify-center space-x-2 active:scale-95 transition-all hover:brightness-110"
+            >
               <Save size={20} /> <span>SALVAR TREINO</span>
             </button>
-            <button 
+
+            <button
               onClick={async () => {
-                const id = prompt('Salvar como Template (A, B, C, D, E, F ou G)?', activeSheet)?.toUpperCase();
-                if (id && ['A', 'B', 'C', 'D', 'E', 'F', 'G'].includes(id)) {
+                const id = prompt(
+                  'Salvar como Template (A, B, C, D, E, F ou G)?',
+                  activeSheet
+                )?.toUpperCase();
+
+                if (id && SHEETS.includes(id as any)) {
                   const itemsToSave = selectedList.map((item, index) => ({
                     exercise_id: item.exerciseId,
-                    exercise_name: allExercises.find(e => e.id === item.exerciseId)?.nome || 'Exercício',
+                    exercise_name:
+                      allExercises.find((e) => e.id === item.exerciseId)?.nome || 'Exercício',
                     series: item.series,
                     reps: item.reps,
                     descanso: item.descanso,
-                    metodo: item.metodo,
-                    ordem: index + 1
+                    metodo: item.metodo || '',
+                    ordem: index + 1,
                   }));
+
                   const updatedTemplates = { ...templates, [id]: itemsToSave };
+
                   try {
                     await db.saveTemplates(updatedTemplates);
                     setTemplates(updatedTemplates);
+                    loadSheetCounts(items, updatedTemplates);
                     triggerSuccessToast();
                   } catch (error) {
                     console.error('Error saving template:', error);
@@ -1335,36 +1609,55 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
           {!targetAlunoId ? (
             <div className="p-20 text-center bg-[#111] rounded-[3rem] border border-dashed border-[#333]">
               <UserPlus size={48} className="mx-auto text-gray-700 mb-4" />
-              <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">Selecione um aluno no topo para montar a periodização</p>
+              <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">
+                Selecione um aluno no topo para montar a periodização
+              </p>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-black italic uppercase text-white">Planejamento Anual</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">Defina a lógica do ciclo. Os treinos criados nas etapas anteriores serão distribuídos conforme esta periodização.</p>
-                  <p className="text-xs text-gray-500 font-medium">Defina a jornada de 12 meses para <span className="text-gold">{alunos.find(a => a.id === targetAlunoId)?.nome}</span>.</p>
+                  <h3 className="text-xl font-black italic uppercase text-white">
+                    Planejamento Anual
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">
+                    Defina a lógica do ciclo. Os treinos criados nas etapas anteriores serão distribuídos conforme esta periodização.
+                  </p>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Defina a jornada de 12 meses para{' '}
+                    <span className="text-gold">
+                      {alunos.find((a) => a.id === targetAlunoId)?.nome}
+                    </span>
+                    .
+                  </p>
                 </div>
-                <button onClick={handleSavePeriodizacao} className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white px-8 py-4 rounded-2xl font-black flex items-center space-x-2 text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-purple-600/20 hover:brightness-110">
+
+                <button
+                  onClick={handleSavePeriodizacao}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white px-8 py-4 rounded-2xl font-black flex items-center space-x-2 text-xs uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-purple-600/20 hover:brightness-110"
+                >
                   <Save size={18} /> <span>Salvar Ciclo</span>
                 </button>
               </div>
 
               <div className="flex overflow-x-auto gold-scrollbar gap-6 pb-10 -mx-6 px-6 snap-x">
                 {periodizacao.map((mes, idx) => (
-                  <div key={mes.mes} className="flex-none w-[300px] sm:w-[340px] snap-start card-premium p-8 rounded-[3rem] border border-white/5 bg-gradient-to-b from-[#111] to-black relative overflow-hidden group hover:border-gold/30 transition-all duration-500 shadow-2xl">
+                  <div
+                    key={mes.mes}
+                    className="flex-none w-[300px] sm:w-[340px] snap-start card-premium p-8 rounded-[3rem] border border-white/5 bg-gradient-to-b from-[#111] to-black relative overflow-hidden group hover:border-gold/30 transition-all duration-500 shadow-2xl"
+                  >
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-20 transition-all duration-700 transform group-hover:scale-110 group-hover:-rotate-12">
                       <Trophy size={100} />
                     </div>
-                    
+
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center space-x-4">
                         <div className="relative">
                           <div className="absolute inset-0 bg-gold blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                          <button 
+                          <button
                             onClick={() => {
-                               setSelectedMonth(mes.mes);
-                               setSubTab('library');
+                              setSelectedMonth(mes.mes);
+                              setSubTab('library');
                             }}
                             className="relative w-14 h-14 bg-gradient-to-br from-gold to-[#A6813B] text-black rounded-2xl flex items-center justify-center font-black text-2xl shadow-2xl shadow-gold/20 hover:scale-110 transition-transform active:scale-95 z-10"
                           >
@@ -1372,18 +1665,25 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                           </button>
                         </div>
                         <div>
-                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block">Mês do Ciclo</span>
-                          <h4 className="text-white font-black uppercase text-sm tracking-widest mt-0.5">PLANEJAMENTO</h4>
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block">
+                            Mês do Ciclo
+                          </span>
+                          <h4 className="text-white font-black uppercase text-sm tracking-widest mt-0.5">
+                            PLANEJAMENTO
+                          </h4>
                         </div>
                       </div>
-                      
+
                       {idx > 0 && (
-                        <button 
+                        <button
                           onClick={() => handleCopyPreviousMonthPeriodizacao(idx)}
                           className="w-10 h-10 bg-white/5 text-gold hover:bg-gold hover:text-black rounded-xl flex items-center justify-center transition-all group/clone"
                           title={`Clonar dados do M${mes.mes - 1}`}
                         >
-                          <RotateCcw size={16} className="group-hover/clone:rotate-180 transition-transform duration-500" />
+                          <RotateCcw
+                            size={16}
+                            className="group-hover/clone:rotate-180 transition-transform duration-500"
+                          />
                         </button>
                       )}
                     </div>
@@ -1394,16 +1694,21 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                           <Target size={12} className="mr-2" /> Fase do Ciclo
                         </label>
                         <div className="relative group/select">
-                          <select 
+                          <select
                             className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 px-5 text-xs font-black text-white outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 transition-all appearance-none cursor-pointer uppercase tracking-widest"
                             value={mes.fase}
                             onChange={(e) => updatePeriodizacao(idx, 'fase', e.target.value)}
                           >
-                            {FASES_PERIODIZACAO.map(f => (
-                              <option key={f} value={f} className="bg-[#0A0A0A]">{f.toUpperCase()}</option>
+                            {FASES_PERIODIZACAO.map((f) => (
+                              <option key={f} value={f} className="bg-[#0A0A0A]">
+                                {f.toUpperCase()}
+                              </option>
                             ))}
                           </select>
-                          <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gold pointer-events-none group-hover/select:scale-110 transition-transform" />
+                          <ChevronDown
+                            size={16}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gold pointer-events-none group-hover/select:scale-110 transition-transform"
+                          />
                         </div>
                       </div>
 
@@ -1411,7 +1716,7 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
                         <label className="text-[9px] font-black text-gold uppercase tracking-[0.2em] flex items-center opacity-70">
                           <Wand2 size={12} className="mr-2" /> Objetivo / Notas
                         </label>
-                        <textarea 
+                        <textarea
                           className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 px-5 text-xs font-bold text-white outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 transition-all min-h-[120px] resize-none placeholder:text-gray-800"
                           placeholder="Ex: Focar em amplitude máxima e controle de carga..."
                           value={mes.objetivo}
@@ -1430,7 +1735,9 @@ const ExerciciosView: React.FC<ExerciciosViewProps> = ({ defaultAlunoId, initial
       {filtrados.length === 0 && subTab === 'library' && (
         <div className="py-20 text-center">
           <Dumbbell size={48} className="mx-auto text-gray-800 mb-4" />
-          <p className="text-gray-600 font-bold uppercase text-xs tracking-widest">Nenhum exercício encontrado</p>
+          <p className="text-gray-600 font-bold uppercase text-xs tracking-widest">
+            Nenhum exercício encontrado
+          </p>
         </div>
       )}
     </div>

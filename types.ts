@@ -1,4 +1,3 @@
-
 export type UserRole = 'aluno' | 'professor';
 
 export interface Usuario {
@@ -53,7 +52,6 @@ export interface FichaTreinoItem {
   ordem: number;
   mes: number; // Mês do ciclo (1 a 12)
   metodo?: string; // Drop Set, Cluster Set, Rest-Pause, etc.
-  ficha?: string; //
 }
 
 export interface Atribuicao {
