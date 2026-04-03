@@ -4,6 +4,7 @@ import { db } from '../services/storage';
 import { Usuario } from '../types';
 import Logo from '../components/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../services/supabase';
 
 interface LoginViewProps {
   onLogin: (email: string) => void;
@@ -11,8 +12,11 @@ interface LoginViewProps {
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [lastUser, setLastUser] = useState<Usuario | null>(null);
   const [view, setView] = useState<'selection' | 'login-atleta' | 'login-mestre'>('selection');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const loadLastUser = async () => {
@@ -34,11 +38,34 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   const handlePortalSelection = (type: 'atleta' | 'mestre') => {
     if (type === 'atleta') {
-      setEmail('aluno@teste.com');
+      setEmail('');
       setView('login-atleta');
     } else {
-      setEmail('killerboy66@gmail.com');
+      setEmail('');
       setView('login-mestre');
+    }
+  };
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError('Email ou senha inválidos');
+        return;
+      }
+
+      onLogin(email);
+    } catch (err) {
+      setError('Erro ao fazer login');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,16 +152,29 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <input
                   type="email"
                   placeholder="Seu e-mail"
-                  className="w-full p-3 mb-4 bg-white/5 border border-white/10 text-white"
+                  className="w-full p-3 mb-3 bg-white/5 border border-white/10 text-white"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
 
+                <input
+                  type="password"
+                  placeholder="Sua senha"
+                  className="w-full p-3 mb-3 bg-white/5 border border-white/10 text-white"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+
+                {error && (
+                  <p className="text-red-500 text-sm mb-2">{error}</p>
+                )}
+
                 <button
-                  onClick={() => onLogin(email)}
+                  onClick={handleLogin}
+                  disabled={loading}
                   className="w-full bg-gold text-black py-3 font-bold"
                 >
-                  Entrar
+                  {loading ? 'Entrando...' : 'Entrar'}
                 </button>
               </div>
             </motion.div>

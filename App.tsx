@@ -32,6 +32,7 @@ const App: React.FC = () => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 400);
     };
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -44,53 +45,85 @@ const App: React.FC = () => {
           notify('Erro de conexão com o banco de dados.', 'error');
         }
 
+        // 🔥 PRIORIDADE: usuário autenticado no Supabase Auth
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error('Erro ao obter usuário autenticado:', error);
+        }
+
+        if (data.user?.email) {
+          const users = await db.getUsers();
+          const found = users.find((u) => u.email === data.user?.email);
+
+          if (found) {
+            try {
+              await db.setLoggedUser(found);
+              await db.setLastUser(found.email);
+            } catch (e) {
+              console.warn('Erro ao sincronizar sessão local:', e);
+            }
+
+            setUser(found);
+            setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
+            return;
+          } else {
+            notify('Usuário autenticado, mas não encontrado na tabela do sistema.', 'error');
+          }
+        }
+
+        // fallback antigo
         const logged = await db.getLoggedUser();
         if (logged) {
           setUser(logged);
           setCurrentRoute(logged.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
         }
       } catch (error) {
-        console.error(error);
+        console.error('Erro ao inicializar app:', error);
       }
     };
+
     initApp();
   }, [notify]);
 
- const handleLogin = async (email: string) => {
-  try {
-    const users = await db.getUsers();
-    const found = users.find((u) => u.email === email);
-
-    if (!found) {
-      notify('E-mail não cadastrado.', 'error');
-      return;
-    }
-
-    // salva direto (GARANTIDO)
-    localStorage.setItem('userEmail', found.email);
-
-    // tenta salvar no storage (sem travar o fluxo)
+  const handleLogin = async (email: string) => {
     try {
-      await db.setLoggedUser(found);
-      await db.setLastUser(found.email);
-    } catch (e) {
-      console.warn('Erro ao salvar sessão, mas login continua:', e);
+      const users = await db.getUsers();
+      const found = users.find((u) => u.email === email);
+
+      if (!found) {
+        notify('E-mail não cadastrado.', 'error');
+        return;
+      }
+
+      localStorage.setItem('userEmail', found.email);
+
+      try {
+        await db.setLoggedUser(found);
+        await db.setLastUser(found.email);
+      } catch (e) {
+        console.warn('Erro ao salvar sessão, mas login continua:', e);
+      }
+
+      console.log('LOGIN OK:', found);
+
+      setUser(found);
+      setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
+
+      notify(`Bem-vindo, ${found.nome}!`, 'success');
+    } catch (error) {
+      console.error('Erro no login:', error);
+      notify('Erro ao fazer login.', 'error');
     }
-
-    console.log('LOGIN OK:', found);
-
-    setUser(found);
-    setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
-
-    notify(`Bem-vindo, ${found.nome}!`, 'success');
-
-  } catch (error) {
-    console.error('Erro no login:', error);
-    notify('Erro ao fazer login.', 'error');
-  }
-};
+  };
 
   const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Erro ao sair do Supabase Auth:', error);
+    }
+
     await db.setLoggedUser(null);
     setUser(null);
     setSelectedProfessorAluno(null);

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Usuario, Treino, Atribuicao } from "../types";
 import { db } from "../services/storage";
+import { supabase } from "../services/supabase";
 import { useNotification } from "../components/Notification";
 import AddStudentModal from "../components/AddStudentModal";
 import {
@@ -45,6 +46,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
   const [treinos, setTreinos] = useState<Treino[]>([]);
   const [assignments, setAssignments] = useState<Atribuicao[]>([]);
   const [savingWorkoutId, setSavingWorkoutId] = useState<string | null>(null);
+  const [creatingStudent, setCreatingStudent] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -90,27 +92,96 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
   const handleAddStudent = async (student: {
     nome: string;
     email: string;
+    senha: string;
     objetivo: string;
     foto: string;
   }) => {
+    if (creatingStudent) return;
+
     try {
+      setCreatingStudent(true);
+
+      const normalizedName = student.nome.trim();
+      const normalizedEmail = student.email.trim().toLowerCase();
+      const normalizedGoal = student.objetivo.trim();
+      const normalizedPhoto = student.foto?.trim() || "";
+
+      if (!normalizedName) {
+        notify("Digite o nome do aluno.", "error");
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        notify("Digite um e-mail válido.", "error");
+        return;
+      }
+
+      if (!student.senha || student.senha.length < 6) {
+        notify("A senha deve ter pelo menos 6 caracteres.", "error");
+        return;
+      }
+
+      const alreadyExists = users.some(
+        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
+      );
+
+      if (alreadyExists) {
+        notify("Já existe um aluno com este e-mail.", "error");
+        return;
+      }
+
+      const { error: authError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: student.senha,
+      });
+
+      if (authError) {
+        console.error(authError);
+
+        const msg = authError.message?.toLowerCase() || "";
+
+        if (msg.includes("rate limit")) {
+          notify(
+            "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.",
+            "error"
+          );
+          return;
+        }
+
+        if (msg.includes("invalid")) {
+          notify("E-mail inválido. Verifique e tente novamente.", "error");
+          return;
+        }
+
+        if (msg.includes("already")) {
+          notify("Este e-mail já está cadastrado no login.", "error");
+          return;
+        }
+
+        notify("Erro ao criar login do aluno: " + authError.message, "error");
+        return;
+      }
+
       const novoAluno: Usuario = {
         id: crypto.randomUUID(),
-        nome: student.nome,
-        email: student.email,
-        objetivo: student.objetivo,
-        foto: student.foto || "",
+        nome: normalizedName,
+        email: normalizedEmail,
+        objetivo: normalizedGoal,
+        foto: normalizedPhoto,
         role: "aluno",
       };
 
       await db.addUser(novoAluno);
       setUsers((prev) => [...prev, novoAluno]);
 
-      notify("Aluno criado com sucesso", "success");
+      notify("Aluno criado com acesso completo 🔥", "success");
       setShowModal(false);
     } catch (err) {
       console.error(err);
       notify("Erro ao criar aluno", "error");
+    } finally {
+      setCreatingStudent(false);
     }
   };
 
@@ -412,10 +483,13 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-gold px-5 py-3 font-black text-black transition-all hover:brightness-110 active:scale-95"
+                disabled={creatingStudent}
+                className={`inline-flex items-center gap-2 rounded-2xl bg-gold px-5 py-3 font-black text-black transition-all hover:brightness-110 active:scale-95 ${
+                  creatingStudent ? "opacity-60 cursor-not-allowed" : ""
+                }`}
               >
                 <UserPlus size={18} />
-                <span>+ Novo Aluno</span>
+                <span>{creatingStudent ? "Criando..." : "+ Novo Aluno"}</span>
               </button>
 
               <button
