@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "tsx watch server/index.ts",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
@@ -16,6 +17,9 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@google/genai": "^1.40.0",
     "@supabase/supabase-js": "^2.99.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
     "lucide-react": "^0.563.0",
     "motion": "^12.35.1",
     "react": "^19.2.4",
@@ -25,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

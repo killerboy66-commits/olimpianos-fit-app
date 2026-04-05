@@ -20,28 +20,62 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   useEffect(() => {
     const loadLastUser = async () => {
-      const lastEmail = await db.getLastUser();
-      if (lastEmail) {
-        const users = await db.getUsers();
-        const found = users.find((u) => u.email === lastEmail);
-        if (found) setLastUser(found);
+      try {
+        const lastEmail = await db.getLastUser();
+        if (!lastEmail) return;
+
+        const normalizedEmail = lastEmail.trim().toLowerCase();
+
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Erro ao carregar último usuário:', error);
+          return;
+        }
+
+        if (data) {
+          setLastUser({
+            ...data,
+            role: data.role || 'aluno',
+            status: data.status || 'ativo',
+            objetivo: data.objetivo || '',
+            foto: data.foto || '',
+          } as Usuario);
+        }
+      } catch (err) {
+        console.error('Erro inesperado ao carregar último usuário:', err);
       }
     };
+
     loadLastUser();
   }, []);
 
   const handleQuickLogin = () => {
-    if (lastUser) {
-      onLogin(lastUser.email);
+    if (!lastUser) return;
+
+    setError('');
+    setPassword('');
+    setEmail(lastUser.email);
+
+    if (lastUser.role === 'professor') {
+      setView('login-mestre');
+    } else {
+      setView('login-atleta');
     }
   };
 
   const handlePortalSelection = (type: 'atleta' | 'mestre') => {
+    setError('');
+    setPassword('');
+    setEmail('');
+
     if (type === 'atleta') {
-      setEmail('');
       setView('login-atleta');
     } else {
-      setEmail('');
       setView('login-mestre');
     }
   };
@@ -51,18 +85,63 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!normalizedEmail || !password) {
+        setError('Preencha e-mail e senha');
+        return;
+      }
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
         password,
       });
 
-      if (error) {
+      if (authError) {
         setError('Email ou senha inválidos');
         return;
       }
 
-      onLogin(email);
+      const { data: foundUser, error: userError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (userError) {
+        await supabase.auth.signOut();
+        setError('Erro ao validar usuário no sistema');
+        return;
+      }
+
+      if (!foundUser) {
+        await supabase.auth.signOut();
+        setError('Usuário não encontrado no sistema');
+        return;
+      }
+
+      if (foundUser.status === 'bloqueado') {
+        await supabase.auth.signOut();
+        setError('Seu acesso está bloqueado. Fale com o suporte.');
+        return;
+      }
+
+      if (view === 'login-mestre' && foundUser.role !== 'professor') {
+        await supabase.auth.signOut();
+        setError('Este acesso é exclusivo para professores.');
+        return;
+      }
+
+      if (view === 'login-atleta' && foundUser.role === 'professor') {
+        await supabase.auth.signOut();
+        setError('Use o Centro de Comando para entrar como professor.');
+        return;
+      }
+
+      await db.setLastUser(normalizedEmail);
+      onLogin(normalizedEmail);
     } catch (err) {
+      console.error(err);
       setError('Erro ao fazer login');
     } finally {
       setLoading(false);
@@ -143,7 +222,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             >
               <div className="bg-black/80 p-6 rounded-2xl border border-white/10">
                 <button
-                  onClick={() => setView('selection')}
+                  onClick={() => {
+                    setView('selection');
+                    setError('');
+                    setPassword('');
+                  }}
                   className="mb-4 text-gray-400 hover:text-white"
                 >
                   Voltar
@@ -172,7 +255,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <button
                   onClick={handleLogin}
                   disabled={loading}
-                  className="w-full bg-gold text-black py-3 font-bold"
+                  className="w-full bg-gold text-black py-3 font-bold disabled:opacity-60"
                 >
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>

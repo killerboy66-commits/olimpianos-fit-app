@@ -46,32 +46,30 @@ const App: React.FC = () => {
         }
 
         // 🔥 PRIORIDADE: usuário autenticado no Supabase Auth
-        const { data, error } = await supabase.auth.getUser();
+        const { data: sessionData } = await supabase.auth.getSession();
+const session = sessionData.session;
 
-        if (error) {
-          console.error('Erro ao obter usuário autenticado:', error);
-        }
+if (session?.user?.email) {
+  const users = await db.getUsers();
+  const found = users.find(
+    (u) => u.email.trim().toLowerCase() === session.user.email?.trim().toLowerCase()
+  );
 
-        if (data.user?.email) {
-          const users = await db.getUsers();
-          const found = users.find((u) => u.email === data.user?.email);
+  if (found) {
+    try {
+      await db.setLoggedUser(found);
+      await db.setLastUser(found.email);
+    } catch (e) {
+      console.warn('Erro ao sincronizar sessão local:', e);
+    }
 
-          if (found) {
-            try {
-              await db.setLoggedUser(found);
-              await db.setLastUser(found.email);
-            } catch (e) {
-              console.warn('Erro ao sincronizar sessão local:', e);
-            }
-
-            setUser(found);
-            setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
-            return;
-          } else {
-            notify('Usuário autenticado, mas não encontrado na tabela do sistema.', 'error');
-          }
-        }
-
+    setUser(found);
+    setCurrentRoute(found.role === 'professor' ? Route.PROFESSOR : Route.ALUNO);
+    return;
+  } else {
+    notify('Usuário autenticado, mas não encontrado na tabela do sistema.', 'error');
+  }
+}
         // fallback antigo
         const logged = await db.getLoggedUser();
         if (logged) {

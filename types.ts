@@ -1,10 +1,12 @@
 export type UserRole = 'aluno' | 'professor';
+export type UserStatus = 'ativo' | 'bloqueado';
 
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
   role: UserRole;
+  status?: UserStatus; // 🔥 novo campo
   objetivo?: string;
   foto?: string;
   conquistas_ids?: string[];
@@ -50,8 +52,8 @@ export interface FichaTreinoItem {
   reps: string;
   descanso: string;
   ordem: number;
-  mes: number; // Mês do ciclo (1 a 12)
-  metodo?: string; // Drop Set, Cluster Set, Rest-Pause, etc.
+  mes: number;
+  metodo?: string;
 }
 
 export interface Atribuicao {

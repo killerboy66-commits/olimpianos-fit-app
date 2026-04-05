@@ -455,30 +455,31 @@ export const db = {
   },
 
   async getProgress() {
-  try {
-    const { data, error } = await supabase
-      .from('progresso')
-      .select('*')
-      .order('data', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('progresso')
+        .select('*')
+        .order('data', { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return (data || []).map((row: any) => ({
-      id: String(row.id),
-      user_id: row.user_id,
-      workout_id: row.workout_id,
-      exercise_id: row.exercise_id,
-      date: row.data,
-      carga_kg: Number(row.carga ?? 0),
-      reps_realizadas: Number(row.reps ?? 0),
-      notes: row.observacoes ?? '',
-      created_at: row.created_at,
-    }));
-  } catch (error) {
-    handleError('getProgress', error);
-    return [];
-  }
-},
+      return (data || []).map((row: any) => ({
+        id: String(row.id),
+        user_id: row.user_id,
+        workout_id: row.workout_id,
+        exercise_id: row.exercise_id,
+        date: row.data,
+        carga_kg: Number(row.carga ?? 0),
+        reps_realizadas: Number(row.reps ?? 0),
+        notes: row.observacoes ?? '',
+        created_at: row.created_at,
+      }));
+    } catch (error) {
+      handleError('getProgress', error);
+      return [];
+    }
+  },
+
   async saveProgress(progress: any[]): Promise<void> {
     try {
       if (!progress.length) return;
@@ -634,6 +635,40 @@ export const db = {
       if (error) throw error;
     } catch (error) {
       handleError('addAvaliacao', error);
+    }
+  },
+
+  async addAchievement(userId: string, achievementId: string): Promise<boolean> {
+    try {
+      const { data: user, error: fetchError } = await supabase
+        .from('usuarios')
+        .select('conquistas_ids')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      const currentAchievements: string[] = Array.isArray(user?.conquistas_ids)
+        ? user.conquistas_ids
+        : [];
+
+      if (currentAchievements.includes(achievementId)) {
+        return false;
+      }
+
+      const updatedAchievements = [...currentAchievements, achievementId];
+
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({ conquistas_ids: updatedAchievements })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      return true;
+    } catch (error) {
+      handleError('addAchievement', error);
+      return false;
     }
   },
 };

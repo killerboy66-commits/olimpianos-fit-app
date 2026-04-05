@@ -65,6 +65,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
       const normalizados: Usuario[] = (usersData || []).map((u: any) => ({
         ...u,
         role: u.role || "aluno",
+        status: u.status || "ativo",
       }));
 
       setUsers(normalizados);
@@ -131,51 +132,40 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
         return;
       }
 
-      const { error: authError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: student.senha,
+      const response = await fetch("http://localhost:3001/create-student", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nome: normalizedName,
+          email: normalizedEmail,
+          senha: student.senha,
+          objetivo: normalizedGoal,
+          foto: normalizedPhoto,
+        }),
       });
 
-      if (authError) {
-        console.error(authError);
+      const result = await response.json();
 
-        const msg = authError.message?.toLowerCase() || "";
-
-        if (msg.includes("rate limit")) {
-          notify(
-            "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.",
-            "error"
-          );
-          return;
-        }
-
-        if (msg.includes("invalid")) {
-          notify("E-mail inválido. Verifique e tente novamente.", "error");
-          return;
-        }
-
-        if (msg.includes("already")) {
-          notify("Este e-mail já está cadastrado no login.", "error");
-          return;
-        }
-
-        notify("Erro ao criar login do aluno: " + authError.message, "error");
+      if (!response.ok) {
+        notify(result.error || "Erro ao criar aluno.", "error");
         return;
       }
 
       const novoAluno: Usuario = {
-        id: crypto.randomUUID(),
+        id: result.userId,
         nome: normalizedName,
         email: normalizedEmail,
         objetivo: normalizedGoal,
         foto: normalizedPhoto,
         role: "aluno",
+        status: "ativo",
       };
 
-      await db.addUser(novoAluno);
       setUsers((prev) => [...prev, novoAluno]);
 
-      notify("Aluno criado com acesso completo 🔥", "success");
+      notify("Aluno criado com login automático 🔥", "success");
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -208,6 +198,93 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
         String(a.workout_id) === String(workoutId) &&
         a.ativo !== false
     );
+  };
+
+  const getStatusBadge = (status?: string) => {
+    return status === "bloqueado"
+      ? "rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-red-400"
+      : "rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400";
+  };
+
+  const getStatusLabel = (status?: string) => {
+    return status === "bloqueado" ? "Bloqueado" : "Ativo";
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedAluno) return;
+
+    try {
+      const novoStatus =
+        selectedAluno.status === "bloqueado" ? "ativo" : "bloqueado";
+
+      const { error } = await supabase
+        .from("usuarios")
+        .update({ status: novoStatus })
+        .eq("id", selectedAluno.id);
+
+      if (error) {
+        console.error(error);
+        notify("Erro ao atualizar status", "error");
+        return;
+      }
+
+      const alunoAtualizado: Usuario = {
+        ...selectedAluno,
+        status: novoStatus,
+      };
+
+      setSelectedAluno(alunoAtualizado);
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedAluno.id ? { ...u, status: novoStatus } : u
+        )
+      );
+
+      notify(
+        novoStatus === "bloqueado"
+          ? "Aluno bloqueado 🚫"
+          : "Aluno desbloqueado 🔓",
+        "success"
+      );
+    } catch (err) {
+      console.error(err);
+      notify("Erro ao alterar status", "error");
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!selectedAluno) return;
+
+    const confirmDelete = window.confirm(
+      `Tem certeza que deseja excluir ${selectedAluno.nome}?`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:3001/delete-student/${selectedAluno.id}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        notify(result.error || "Erro ao excluir aluno", "error");
+        return;
+      }
+
+      setUsers((prev) => prev.filter((u) => u.id !== selectedAluno.id));
+      setSelectedAluno(null);
+
+      notify("Aluno excluído com sucesso 💀", "success");
+    } catch (err) {
+      console.error(err);
+      notify("Erro ao excluir aluno", "error");
+    }
   };
 
   const handleToggleWorkout = async (workoutId: string) => {
@@ -309,13 +386,33 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
-                  Ativo
+                <span className={getStatusBadge(selectedAluno.status)}>
+                  {getStatusLabel(selectedAluno.status)}
                 </span>
 
                 <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
                   Aluno
                 </span>
+
+                <button
+                  onClick={handleToggleStatus}
+                  className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    selectedAluno.status === "bloqueado"
+                      ? "bg-emerald-500 text-white hover:bg-emerald-400"
+                      : "bg-red-500 text-white hover:bg-red-400"
+                  }`}
+                >
+                  {selectedAluno.status === "bloqueado"
+                    ? "Desbloquear"
+                    : "Bloquear"}
+                </button>
+
+                <button
+                  onClick={handleDeleteStudent}
+                  className="rounded-xl bg-red-700 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-red-600"
+                >
+                  Excluir Aluno
+                </button>
               </div>
             </div>
           </section>
@@ -340,7 +437,9 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
                 Status
               </p>
-              <p className="mt-2 text-lg font-black text-white">Ativo</p>
+              <p className="mt-2 text-lg font-black text-white">
+                {getStatusLabel(selectedAluno.status)}
+              </p>
             </div>
 
             <div className="rounded-[1.75rem] border border-white/5 bg-[#111] p-5 shadow-xl">
@@ -593,8 +692,8 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
 
                     <div className="flex flex-col items-start gap-3 md:items-end">
                       <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
-                          Ativo
+                        <span className={getStatusBadge(aluno.status)}>
+                          {getStatusLabel(aluno.status)}
                         </span>
 
                         <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
