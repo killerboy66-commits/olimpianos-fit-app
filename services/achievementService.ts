@@ -40,7 +40,8 @@ export const achievementService = {
     const earned: string[] = [];
 
     // 1. Primeiro Passo
-    if (await db.addAchievement(userId, "primeiro_passo")) {
+    const a1 = await db.addAchievement(userId, "primeiro_passo");
+    if (a1 === true) {
       earned.push("primeiro_passo");
     }
 
@@ -50,8 +51,11 @@ export const achievementService = {
       return !Number.isNaN(date.getTime()) && date.getHours() < 7;
     });
 
-    if (earlyWorkout && (await db.addAchievement(userId, "guerreiro_da_madrugada"))) {
-      earned.push("guerreiro_da_madrugada");
+    if (earlyWorkout) {
+      const a2 = await db.addAchievement(userId, "guerreiro_da_madrugada");
+      if (a2 === true) {
+        earned.push("guerreiro_da_madrugada");
+      }
     }
 
     // 3. Legionário Assíduo (5 dias seguidos)
@@ -75,13 +79,19 @@ export const achievementService = {
       }
     }
 
-    if (maxStreak >= 5 && (await db.addAchievement(userId, "legionario_assiduo"))) {
-      earned.push("legionario_assiduo");
+    if (maxStreak >= 5) {
+      const a3 = await db.addAchievement(userId, "legionario_assiduo");
+      if (a3 === true) {
+        earned.push("legionario_assiduo");
+      }
     }
 
     // 4. Mestre da Técnica (50 registros totais)
-    if (progress.length >= 50 && (await db.addAchievement(userId, "mestre_da_tecnica"))) {
-      earned.push("mestre_da_tecnica");
+    if (progress.length >= 50) {
+      const a4 = await db.addAchievement(userId, "mestre_da_tecnica");
+      if (a4 === true) {
+        earned.push("mestre_da_tecnica");
+      }
     }
 
     return earned;
@@ -95,7 +105,8 @@ export const achievementService = {
     const earned: string[] = [];
 
     // 1. Evolução Olimpiana
-    if (await db.addAchievement(userId, "evolucao_olimpiana")) {
+    const a5 = await db.addAchievement(userId, "evolucao_olimpiana");
+    if (a5 === true) {
       earned.push("evolucao_olimpiana");
     }
 
@@ -107,13 +118,11 @@ export const achievementService = {
       const lastFat = toNumber(last?.gordura_percentual);
       const prevFat = toNumber(prev?.gordura_percentual);
 
-      if (
-        lastFat !== null &&
-        prevFat !== null &&
-        lastFat < prevFat &&
-        (await db.addAchievement(userId, "corpo_de_espartano"))
-      ) {
-        earned.push("corpo_de_espartano");
+      if (lastFat !== null && prevFat !== null && lastFat < prevFat) {
+        const a6 = await db.addAchievement(userId, "corpo_de_espartano");
+        if (a6 === true) {
+          earned.push("corpo_de_espartano");
+        }
       }
     }
 
