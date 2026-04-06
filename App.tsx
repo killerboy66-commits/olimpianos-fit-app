@@ -213,15 +213,13 @@ if (session?.user?.email) {
       case Route.AICHAT:
         return <AIChat />;
 
-      case Route.PROFESSOR:
-        return (
-          <ProfessorPainel
-            user={user!}
-            onLogout={handleLogout}
-            onNavigate={setCurrentRoute}
-            onSelectAluno={handleProfessorSelectAluno}
-          />
-        );
+   case Route.PROFESSOR:
+  return (
+    <ProfessorPainel
+      user={user!}
+      onLogout={handleLogout}
+    />
+  );
 
       default:
         return <LoginView onLogin={handleLogin} />;

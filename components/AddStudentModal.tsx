@@ -171,7 +171,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onAdd }) => 
 
             <button
               type="submit"
-              className="flex-1 bg-gradient-to-r from-gold to-amber-500 text-black py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-gold/20 active:scale-95 transition-all hover:brightness-110"
+              className="flex-1 bg-[#C6A15B] text-black py-4 rounded-xl font-black uppercase text-[10px] tracking-widest border border-[#E5C98B] shadow-lg shadow-[#C6A15B]/30 active:scale-95 transition-all hover:brightness-110"
             >
               Confirmar Recrutamento
             </button>
