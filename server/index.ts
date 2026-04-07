@@ -11,8 +11,19 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+console.log("VITE_SUPABASE_URL carregada?", !!supabaseUrl);
+console.log("SUPABASE_SERVICE_ROLE_KEY carregada?", !!supabaseServiceRoleKey);
+
+if (!supabaseUrl) {
+  throw new Error("Falta VITE_SUPABASE_URL no .env");
+}
+
+if (!supabaseServiceRoleKey) {
+  throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY no .env");
+}
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
@@ -32,6 +43,8 @@ app.get("/health", (_req, res) => {
 
 app.post("/create-student", async (req, res) => {
   try {
+    console.log("📥 body recebido em /create-student:", req.body);
+
     const { nome, email, senha, objetivo, foto } = req.body;
 
     const normalizedName = String(nome || "").trim();
@@ -53,6 +66,8 @@ app.post("/create-student", async (req, res) => {
       return res.status(400).json({ error: "A senha deve ter pelo menos 6 caracteres." });
     }
 
+    console.log("🔐 Criando usuário no Auth:", normalizedEmail);
+
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
@@ -61,10 +76,19 @@ app.post("/create-student", async (req, res) => {
       });
 
     if (authError) {
+      console.error("❌ authError createUser:", authError);
       return res.status(400).json({ error: authError.message });
     }
 
+    if (!authData?.user?.id) {
+      console.error("❌ authData sem user.id:", authData);
+      return res.status(400).json({ error: "Não foi possível criar o usuário no Auth." });
+    }
+
     const authUserId = authData.user.id;
+    console.log("✅ Usuário criado no Auth:", authUserId);
+
+    console.log("💾 Inserindo em usuarios...");
 
     const { error: dbError } = await supabaseAdmin.from("usuarios").insert({
       id: authUserId,
@@ -77,9 +101,14 @@ app.post("/create-student", async (req, res) => {
     });
 
     if (dbError) {
+      console.error("❌ dbError insert usuarios:", dbError);
+
       await supabaseAdmin.auth.admin.deleteUser(authUserId);
+
       return res.status(400).json({ error: dbError.message });
     }
+
+    console.log("✅ Aluno salvo na tabela usuarios");
 
     return res.json({
       ok: true,
@@ -87,7 +116,7 @@ app.post("/create-student", async (req, res) => {
       userId: authUserId,
     });
   } catch (error) {
-    console.error("Erro em /create-student:", error);
+    console.error("❌ Erro em /create-student:", error);
     return res.status(500).json({ error: "Erro interno do servidor." });
   }
 });
@@ -95,6 +124,8 @@ app.post("/create-student", async (req, res) => {
 const deleteStudentHandler = async (req: express.Request, res: express.Response) => {
   try {
     const userId = String(req.params.id || "").trim();
+
+    console.log("🗑️ Tentando excluir aluno:", userId);
 
     if (!userId) {
       return res.status(400).json({ error: "ID não informado." });
@@ -107,6 +138,7 @@ const deleteStudentHandler = async (req: express.Request, res: express.Response)
       .maybeSingle();
 
     if (userFetchError) {
+      console.error("❌ userFetchError:", userFetchError);
       return res.status(400).json({ error: userFetchError.message });
     }
 
@@ -114,7 +146,9 @@ const deleteStudentHandler = async (req: express.Request, res: express.Response)
       return res.status(404).json({ error: `Aluno não encontrado para o id ${userId}.` });
     }
 
-    await Promise.allSettled([
+    console.log("✅ Aluno encontrado:", userData);
+
+    const cleanupResults = await Promise.allSettled([
       supabaseAdmin.from("atribuicoes").delete().eq("user_id", userId),
       supabaseAdmin.from("ficha_treino_itens").delete().eq("user_id", userId),
       supabaseAdmin.from("periodizacoes").delete().eq("user_id", userId),
@@ -125,19 +159,26 @@ const deleteStudentHandler = async (req: express.Request, res: express.Response)
       supabaseAdmin.from("exercise_loads").delete().eq("user_id", userId),
     ]);
 
+    console.log("🧹 cleanupResults:", cleanupResults);
+
     const { error: dbError } = await supabaseAdmin
       .from("usuarios")
       .delete()
       .eq("id", userId);
 
     if (dbError) {
+      console.error("❌ dbError delete usuarios:", dbError);
       return res.status(400).json({ error: dbError.message });
     }
+
+    console.log("✅ Registro removido da tabela usuarios");
 
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authError) {
-      console.error("Erro ao deletar no Auth:", authError);
+      console.error("❌ authError deleteUser:", authError);
+    } else {
+      console.log("✅ Usuário removido do Auth");
     }
 
     return res.json({
@@ -145,12 +186,12 @@ const deleteStudentHandler = async (req: express.Request, res: express.Response)
       message: "Aluno excluído com sucesso.",
     });
   } catch (error) {
-    console.error("Erro em /delete-student/:id:", error);
+    console.error("❌ Erro em /delete-student/:id:", error);
     return res.status(500).json({ error: "Erro interno do servidor." });
   }
 };
 
-// registra os dois métodos para evitar dor de cabeça
+// registra os dois métodos
 app.delete("/delete-student/:id", deleteStudentHandler);
 app.post("/delete-student/:id", deleteStudentHandler);
 
