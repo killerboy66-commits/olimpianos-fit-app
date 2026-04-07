@@ -267,7 +267,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
       const response = await fetch(
         `${API_URL}/delete-student/${selectedAluno.id}`,
         {
-          method: "POST",
+          method: "DELETE",
         }
       );
 
