@@ -4,6 +4,7 @@ import { db } from "../services/storage";
 import { supabase } from "../services/supabase";
 import { useNotification } from "../components/Notification";
 import AddStudentModal from "../components/AddStudentModal";
+import { API_URL } from "../config/api";
 import {
   LogOut,
   UserPlus,
@@ -132,7 +133,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
         return;
       }
 
-      const response = await fetch("http://localhost:3001/create-student", {
+      const response = await fetch(`${API_URL}/create-student`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -264,7 +265,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/delete-student/${selectedAluno.id}`,
+        `${API_URL}/delete-student/${selectedAluno.id}`,
         {
           method: "POST",
         }
