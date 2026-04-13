@@ -8,6 +8,7 @@ import {
   CronogramaSemanal,
   AvaliacaoFisica,
   Treino,
+  RegistroProgresso,
 } from '../types';
 
 type TemplateItem = {
@@ -454,7 +455,7 @@ export const db = {
     }
   },
 
-  async getProgress() {
+  async getProgress(): Promise<RegistroProgresso[]> {
     try {
       const { data, error } = await supabase
         .from('progresso')
@@ -473,10 +474,32 @@ export const db = {
         reps_realizadas: Number(row.reps ?? 0),
         notes: row.observacoes ?? '',
         created_at: row.created_at,
-      }));
+      })) as RegistroProgresso[];
     } catch (error) {
       handleError('getProgress', error);
       return [];
+    }
+  },
+
+  async addProgress(entry: RegistroProgresso): Promise<void> {
+    try {
+      const payload = {
+        user_id: entry.user_id,
+        workout_id: entry.workout_id,
+        exercise_id: entry.exercise_id,
+        data: entry.date,
+        carga: entry.carga_kg ?? 0,
+        reps: entry.reps_realizadas ?? 0,
+        observacoes: entry.notes ?? '',
+      };
+
+      const { error } = await supabase
+        .from('progresso')
+        .insert([payload]);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('addProgress', error);
     }
   },
 
@@ -484,9 +507,20 @@ export const db = {
     try {
       if (!progress.length) return;
 
+      const payload = progress.map((entry: any) => ({
+        id: entry.id,
+        user_id: entry.user_id,
+        workout_id: entry.workout_id,
+        exercise_id: entry.exercise_id,
+        data: entry.date ?? entry.data,
+        carga: entry.carga_kg ?? entry.carga ?? 0,
+        reps: entry.reps_realizadas ?? entry.reps ?? 0,
+        observacoes: entry.notes ?? entry.observacoes ?? '',
+      }));
+
       const { error } = await supabase
         .from('progresso')
-        .upsert(progress);
+        .upsert(payload);
 
       if (error) throw error;
     } catch (error) {
@@ -506,6 +540,57 @@ export const db = {
     } catch (error) {
       handleError('getExerciseLoads', error);
       return [];
+    }
+  },
+
+  async getExerciseLoad(
+    userId: string,
+    workoutId: string,
+    exerciseId: string
+  ): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('exercise_loads')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('workout_id', workoutId)
+        .eq('exercise_id', exerciseId)
+        .order('data', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) return '';
+      return String(data.carga ?? '');
+    } catch (error) {
+      handleError('getExerciseLoad', error);
+      return '';
+    }
+  },
+
+  async setExerciseLoad(
+    userId: string,
+    workoutId: string,
+    exerciseId: string,
+    load: string
+  ): Promise<void> {
+    try {
+      const payload = {
+        user_id: userId,
+        workout_id: workoutId,
+        exercise_id: exerciseId,
+        carga: Number(load || 0),
+        data: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('exercise_loads')
+        .insert([payload]);
+
+      if (error) throw error;
+    } catch (error) {
+      handleError('setExerciseLoad', error);
     }
   },
 

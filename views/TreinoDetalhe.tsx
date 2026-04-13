@@ -37,6 +37,14 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+const getDateKey = (value?: string | Date) => {
+  const date = value ? new Date(value) : new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface TreinoDetalheProps {
   user: Usuario;
   initialWorkoutId: string;
@@ -69,7 +77,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
   const timerRef = useRef<number | null>(null);
 
   const getWorkoutMonth = (wId: string, currentAssignments: Atribuicao[]) => {
-    const assignment = currentAssignments.find((a) => a.workout_id === wId);
+    const assignment = currentAssignments.find((a) => String(a.workout_id) === String(wId));
     if (!assignment) return 1;
 
     if ((assignment as any).mes_atual !== undefined && (assignment as any).mes_atual !== null) {
@@ -114,9 +122,6 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
         setPeriodizacao(p);
         setExercises(safeExercises);
         setAllProgress(safeProgress);
-
-        console.log('TREINO DETALHE - WORKOUTS:', safeWorkouts);
-        console.log('TREINO DETALHE - ASSIGNMENTS DO ALUNO:', userAssignments);
       } catch (error) {
         console.error('Error loading initial workout data:', error);
       } finally {
@@ -142,8 +147,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
         const sameWorkoutItems = safeItems.filter((i: any) => {
           const sameUser = i.user_id === user.id;
-          const sameWorkout =
-            String(i.workout_id ?? i.ficha ?? '') === String(activeWorkoutId);
+          const sameWorkout = String(i.workout_id ?? i.ficha ?? '') === String(activeWorkoutId);
           return sameUser && sameWorkout;
         });
 
@@ -174,10 +178,6 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
             .filter((i: any) => Number(i.mes || 1) === Number(fallbackMonth))
             .sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0));
         }
-
-        console.log('TREINO DETALHE - ACTIVE WORKOUT:', activeWorkoutId);
-        console.log('TREINO DETALHE - VIEW MONTH:', viewMonth);
-        console.log('TREINO DETALHE - ITEMS DO MES:', currentItems);
 
         setWorkoutItems(currentItems);
 
@@ -213,12 +213,13 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
         setExerciseLoads(initialLoads);
         setExerciseReps(initialReps);
 
-        const today = new Date().toLocaleDateString();
+        const todayKey = getDateKey();
+
         const todayProgress = allProgress.filter(
           (p) =>
             p.user_id === user.id &&
             String(p.workout_id) === String(activeWorkoutId) &&
-            new Date(p.date).toLocaleDateString() === today
+            getDateKey(p.date) === todayKey
         );
 
         setSessionHistory(todayProgress);
@@ -251,7 +252,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
       timerRef.current = window.setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft <= 0) {
       setTimerActive(false);
       if (timerRef.current) clearInterval(timerRef.current);
     }
@@ -288,38 +289,64 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
       notes: `Série ${currentCompleted + 1}`,
     };
 
-    const addProgressFn = (db as any).addProgress;
-    if (typeof addProgressFn === 'function') {
-      await addProgressFn(entry);
-    } else {
-      console.warn('db.addProgress não existe no storage.');
-    }
+    try {
+      const addProgressFn = (db as any).addProgress;
+      if (typeof addProgressFn === 'function') {
+        await addProgressFn(entry);
+      } else {
+        console.warn('db.addProgress não existe no storage.');
+      }
 
-    setAllProgress((prev) => [...prev, entry]);
+      setAllProgress((prev) => [...prev, entry]);
+
+      try {
+        await achievementService.checkWorkoutAchievements(user.id);
+      } catch (error) {
+        console.error('Erro ao checar conquistas:', error);
+      }
+
+      setSessionHistory((prev) => [...prev, entry]);
+      setSeriesCompleted((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }));
+
+      const setExerciseLoadFn = (db as any).setExerciseLoad;
+      if (typeof setExerciseLoadFn === 'function') {
+        await setExerciseLoadFn(user.id, activeWorkoutId, exerciseId, currentLoad);
+      }
+
+      if (currentCompleted + 1 === totalSets) {
+        setShowCelebration(true);
+        setTimeout(() => setShowCelebration(false), 3000);
+      }
+
+      const seconds = parseRestTime(restTimeStr);
+      setTimeLeft(seconds);
+      setInitialTime(seconds);
+      setTimerActive(true);
+    } catch (error) {
+      console.error('Erro ao registrar série:', error);
+      notify('Erro ao registrar série.', 'error');
+    }
+  };
+
+  const handleFinishWorkout = async () => {
+    if (sessionHistory.length === 0) {
+      notify('Você ainda não registrou nenhuma série.', 'error');
+      return;
+    }
 
     try {
-      achievementService.checkWorkoutAchievements(user.id);
+      const updatedProgress = await db.getProgress();
+      setAllProgress(Array.isArray(updatedProgress) ? updatedProgress : []);
+
+      notify('🔥 Treino finalizado e salvo com sucesso!', 'success');
+
+      setTimeout(() => {
+        onBack();
+      }, 400);
     } catch (error) {
-      console.error('Erro ao checar conquistas:', error);
+      console.error('Erro ao finalizar treino:', error);
+      notify('Erro ao finalizar treino.', 'error');
     }
-
-    setSessionHistory((prev) => [...prev, entry]);
-    setSeriesCompleted((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }));
-
-    const setExerciseLoadFn = (db as any).setExerciseLoad;
-    if (typeof setExerciseLoadFn === 'function') {
-      await setExerciseLoadFn(user.id, activeWorkoutId, exerciseId, currentLoad);
-    }
-
-    if (currentCompleted + 1 === totalSets) {
-      setShowCelebration(true);
-      setTimeout(() => setShowCelebration(false), 3000);
-    }
-
-    const seconds = parseRestTime(restTimeStr);
-    setTimeLeft(seconds);
-    setInitialTime(seconds);
-    setTimerActive(true);
   };
 
   if (loading) {
@@ -442,7 +469,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
               (p) =>
                 p.user_id === user.id &&
                 String(p.workout_id) === String(w.id) &&
-                new Date(p.date).toLocaleDateString() === new Date().toLocaleDateString()
+                getDateKey(p.date) === getDateKey()
             );
 
             return (
@@ -696,7 +723,7 @@ const TreinoDetalhe: React.FC<TreinoDetalheProps> = ({ user, initialWorkoutId, o
 
       <div className="mt-12 mb-10 text-center">
         <button
-          onClick={onBack}
+          onClick={handleFinishWorkout}
           className="px-12 py-5 bg-[#111] border border-[#222] rounded-full text-gray-500 font-black text-[10px] uppercase tracking-[0.3em] hover:text-white transition-colors"
         >
           Finalizar Treino
