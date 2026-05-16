@@ -17,6 +17,7 @@ import {
   Sword,
   Shield,
   Trophy,
+  ChevronDown,
 } from 'lucide-react';
 import {
   LineChart,
@@ -49,6 +50,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({
   const [history, setHistory] = useState<RegistroProgresso[]>([]);
   const [exercises, setExercises] = useState<Exercicio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const [newEval, setNewEval] = useState({
     peso: '',
@@ -237,6 +239,74 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({
       }));
   }, [history]);
 
+  const groupedHistory = useMemo(() => {
+    const grouped = history.reduce<
+      Record<
+        string,
+        {
+          key: string;
+          exercise_id: string;
+          exerciseName: string;
+          dateKey: string;
+          displayDate: string;
+          displayTime: string;
+          series: RegistroProgresso[];
+          maxCarga: number;
+          totalReps: number;
+          mediaCarga: number;
+        }
+      >
+    >((acc, reg) => {
+      const ex = exercises.find((e) => e.id === reg.exercise_id);
+      const dateObj = new Date(reg.date);
+
+      const dateKey = [
+        dateObj.getFullYear(),
+        String(dateObj.getMonth() + 1).padStart(2, '0'),
+        String(dateObj.getDate()).padStart(2, '0'),
+      ].join('-');
+
+      const key = `${reg.exercise_id}-${dateKey}`;
+      const carga = Number(reg.carga_kg || 0);
+      const reps = Number(reg.reps_realizadas || 0);
+
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          exercise_id: reg.exercise_id,
+          exerciseName: ex?.nome || 'Exercício',
+          dateKey,
+          displayDate: dateObj.toLocaleDateString('pt-BR'),
+          displayTime: dateObj.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          series: [],
+          maxCarga: 0,
+          totalReps: 0,
+          mediaCarga: 0,
+        };
+      }
+
+      acc[key].series.push(reg);
+      acc[key].maxCarga = Math.max(acc[key].maxCarga, carga);
+      acc[key].totalReps += reps;
+
+      const totalCarga = acc[key].series.reduce(
+        (sum, item) => sum + Number(item.carga_kg || 0),
+        0
+      );
+
+      acc[key].mediaCarga = totalCarga / acc[key].series.length;
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+      .slice(0, 12);
+  }, [history, exercises]);
+
   const chartFisicoData = useMemo(() => {
     return avaliacoes.map((a) => ({
       name: new Date(a.date).toLocaleDateString('pt-BR', {
@@ -395,43 +465,92 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({
               Histórico de Séries
             </h3>
 
-            {[...history].reverse().map((reg) => {
-              const ex = exercises.find((e) => e.id === reg.exercise_id);
+            {groupedHistory.length > 0 ? (
+              groupedHistory.map((group) => {
+                const expanded = expandedGroups[group.key];
 
-              return (
-                <div
-                  key={reg.id}
-                  className="card-premium p-6 rounded-[2.5rem] flex items-center justify-between border border-[#222] hover:border-gold/30"
-                >
-                  <div className="flex items-center space-x-5">
-                    <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center border border-gold/20">
-                      <TrendingUp size={22} className="text-gold" />
-                    </div>
+                return (
+                  <div
+                    key={group.key}
+                    className="card-premium rounded-[2.5rem] border border-[#222] hover:border-gold/30 overflow-hidden"
+                  >
+                    <button
+                      onClick={() =>
+                        setExpandedGroups((prev) => ({
+                          ...prev,
+                          [group.key]: !prev[group.key],
+                        }))
+                      }
+                      className="w-full p-6 flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center space-x-5">
+                        <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center border border-gold/20">
+                          <TrendingUp size={22} className="text-gold" />
+                        </div>
 
-                    <div>
-                      <p className="font-black text-white text-lg tracking-tight">
-                        {ex?.nome || 'Exercício'}
-                      </p>
+                        <div>
+                          <p className="font-black text-white text-lg tracking-tight">
+                            {group.exerciseName}
+                          </p>
 
-                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
-                        {new Date(reg.date).toLocaleDateString()} •{' '}
-                        {new Date(reg.date).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
+                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
+                            {group.displayDate} • {group.displayTime}
+                          </p>
+
+                          <p className="mt-1 text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                            {group.series.length} séries • média {group.mediaCarga.toFixed(1)}kg
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-2xl font-black text-gold italic">
+                            {group.maxCarga}kg
+                          </p>
+                          <p className="text-[9px] text-gray-600 font-black uppercase">
+                            Melhor carga
+                          </p>
+                        </div>
+
+                        <ChevronDown
+                          size={20}
+                          className={`text-gold transition-transform ${
+                            expanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </button>
+
+                    {expanded && (
+                      <div className="px-6 pb-6 space-y-2 border-t border-[#222] pt-4">
+                        {group.series.map((serie, index) => (
+                          <div
+                            key={serie.id}
+                            className="flex items-center justify-between rounded-2xl bg-black/30 border border-[#222] px-4 py-3"
+                          >
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                              Série {index + 1}
+                            </span>
+
+                            <span className="text-sm font-black text-white">
+                              {serie.carga_kg}kg • {serie.reps_realizadas} reps
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-gold italic">{reg.carga_kg}kg</p>
-                    <p className="text-[9px] text-gray-600 font-black uppercase">
-                      {reg.reps_realizadas} Repetições
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="py-16 text-center border-2 border-dashed border-[#222] rounded-[3rem] bg-[#111]/30">
+                <TrendingUp size={54} className="mx-auto text-gray-800 mb-5" />
+                <p className="text-gray-500 font-black uppercase text-xs tracking-[0.3em] italic">
+                  Nenhum histórico de séries ainda
+                </p>
+              </div>
+            )}
           </section>
         </>
       ) : (
