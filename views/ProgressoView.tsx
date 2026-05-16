@@ -32,10 +32,17 @@ import {
 interface ProgressoViewProps {
   user: Usuario;
   onBack: () => void;
+  selectedStudent?: Usuario;
 }
 
-const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
+const ProgressoView: React.FC<ProgressoViewProps> = ({
+  user,
+  onBack,
+  selectedStudent,
+}) => {
   const { notify } = useNotification();
+  const targetUser = selectedStudent || user;
+
   const [activeTab, setActiveTab] = useState<'performance' | 'fisico'>('performance');
   const [showAddModal, setShowAddModal] = useState(false);
   const [avaliacoes, setAvaliacoes] = useState<AvaliacaoFisica[]>([]);
@@ -65,11 +72,12 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
+
       try {
         const [h, e, a] = await Promise.all([
           db.getProgress(),
           db.getExercises(),
-          db.getAvaliacoes(user.id),
+          db.getAvaliacoes(targetUser.id),
         ]);
 
         const safeHistory = Array.isArray(h) ? h : [];
@@ -78,12 +86,16 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
 
         setHistory(
           safeHistory
-            .filter((p) => p.user_id === user.id)
+            .filter((p) => p.user_id === targetUser.id)
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         );
+
         setExercises(safeExercises);
+
         setAvaliacoes(
-          safeAvaliacoes.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          safeAvaliacoes.sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          )
         );
       } catch (error) {
         console.error('Error loading progress data:', error);
@@ -93,7 +105,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
     };
 
     loadData();
-  }, [user.id]);
+  }, [targetUser.id]);
 
   const handleSaveEval = async () => {
     if (!newEval.peso) {
@@ -109,7 +121,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
 
     const entry: AvaliacaoFisica = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: user.id,
+      user_id: targetUser.id,
       date: new Date().toISOString(),
       peso: parseNum(newEval.peso) || 0,
       gordura_percentual: parseNum(newEval.gordura),
@@ -133,16 +145,23 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
 
     try {
       await db.addAvaliacao(entry);
-      const updatedAvaliacoes = await db.getAvaliacoes(user.id);
+
+      const updatedAvaliacoes = await db.getAvaliacoes(targetUser.id);
       const safeAvaliacoes = Array.isArray(updatedAvaliacoes) ? updatedAvaliacoes : [];
+
       setAvaliacoes(
-        safeAvaliacoes.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        safeAvaliacoes.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        )
       );
 
       notify(
-        'Avaliação física salva com sucesso! O professor já pode visualizar no Centro de Comando.',
+        selectedStudent
+          ? 'Avaliação física do aluno salva com sucesso.'
+          : 'Avaliação física salva com sucesso! O professor já pode visualizar no Centro de Comando.',
         'success'
       );
+
       setShowAddModal(false);
 
       setNewEval({
@@ -184,24 +203,27 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
   };
 
   const chartPerformanceData = useMemo(() => {
-    const grouped = history.reduce<Record<string, { date: string; peso: number }>>((acc, curr) => {
-      const dateObj = new Date(curr.date);
-      const dateKey = [
-        dateObj.getFullYear(),
-        String(dateObj.getMonth() + 1).padStart(2, '0'),
-        String(dateObj.getDate()).padStart(2, '0'),
-      ].join('-');
+    const grouped = history.reduce<Record<string, { date: string; peso: number }>>(
+      (acc, curr) => {
+        const dateObj = new Date(curr.date);
+        const dateKey = [
+          dateObj.getFullYear(),
+          String(dateObj.getMonth() + 1).padStart(2, '0'),
+          String(dateObj.getDate()).padStart(2, '0'),
+        ].join('-');
 
-      if (!acc[dateKey]) {
-        acc[dateKey] = {
-          date: dateKey,
-          peso: 0,
-        };
-      }
+        if (!acc[dateKey]) {
+          acc[dateKey] = {
+            date: dateKey,
+            peso: 0,
+          };
+        }
 
-      acc[dateKey].peso += Number(curr.carga_kg || 0);
-      return acc;
-    }, {});
+        acc[dateKey].peso += Number(curr.carga_kg || 0);
+        return acc;
+      },
+      {}
+    );
 
     return Object.values(grouped)
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -245,7 +267,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[60vh] bg-[#0A0A0A]">
         <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -266,9 +288,16 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
             <h2 className="text-2xl font-black italic uppercase tracking-tighter">
               Evolução do Atleta
             </h2>
+
+            <p className="text-[10px] text-gold uppercase tracking-[0.3em] font-black mt-1">
+              {targetUser.nome}
+            </p>
+
             <div className={`flex items-center space-x-1 ${rank.color}`}>
               {rank.icon}
-              <span className="text-[8px] font-black uppercase tracking-widest">{rank.title}</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">
+                {rank.title}
+              </span>
             </div>
           </div>
         </div>
@@ -293,6 +322,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
         >
           Performance Técnica
         </button>
+
         <button
           onClick={() => setActiveTab('fisico')}
           className={`flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -321,7 +351,9 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                         <stop offset="95%" stopColor="#C6A15B" stopOpacity={0} />
                       </linearGradient>
                     </defs>
+
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#222" />
+
                     <XAxis
                       dataKey="name"
                       stroke="#666"
@@ -329,6 +361,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#111',
@@ -337,6 +370,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                         fontSize: '12px',
                       }}
                     />
+
                     <Area
                       type="monotone"
                       dataKey="peso"
@@ -378,6 +412,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       <p className="font-black text-white text-lg tracking-tight">
                         {ex?.nome || 'Exercício'}
                       </p>
+
                       <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
                         {new Date(reg.date).toLocaleDateString()} •{' '}
                         {new Date(reg.date).toLocaleTimeString([], {
@@ -409,6 +444,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                   Peso Atual
                 </p>
               </div>
+
               <p className="text-3xl font-black text-white italic">
                 {latestEval?.peso || '--'}{' '}
                 <span className="text-xs text-gray-500 not-italic font-bold">KG</span>
@@ -422,6 +458,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                   Gordura Est.
                 </p>
               </div>
+
               <p className="text-3xl font-black text-white italic">
                 {latestEval?.gordura_percentual || '--'}{' '}
                 <span className="text-xs text-gray-500 not-italic font-bold">%</span>
@@ -440,6 +477,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={chartFisicoData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#222" />
+
                     <XAxis
                       dataKey="name"
                       stroke="#666"
@@ -447,6 +485,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       axisLine={false}
                       tickLine={false}
                     />
+
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#111',
@@ -454,12 +493,18 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                         borderRadius: '16px',
                       }}
                     />
+
                     <Line
                       type="monotone"
                       dataKey="peso"
                       stroke="#C6A15B"
                       strokeWidth={5}
-                      dot={{ r: 6, fill: '#C6A15B', strokeWidth: 3, stroke: '#0A0A0A' }}
+                      dot={{
+                        r: 6,
+                        fill: '#C6A15B',
+                        strokeWidth: 3,
+                        stroke: '#0A0A0A',
+                      }}
                       activeDot={{ r: 8 }}
                     />
                   </LineChart>
@@ -494,6 +539,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                         <div className="bg-gold/10 p-2 rounded-xl text-gold">
                           <Calendar size={18} />
                         </div>
+
                         <span className="text-sm font-black text-white uppercase italic tracking-tight">
                           {new Date(evalItem.date).toLocaleDateString('pt-BR', {
                             day: '2-digit',
@@ -594,6 +640,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] border-l-4 border-gold pl-3">
                   Tronco & Eixo Central
                 </p>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {[
                     { id: 'pescoco', label: 'Pescoço' },
@@ -610,6 +657,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       <label className="text-[8px] font-bold text-gray-600 uppercase mb-1 block">
                         {f.label}
                       </label>
+
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -631,6 +679,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] border-l-4 border-emerald-500 pl-3">
                   Membros Superiores
                 </p>
+
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     { id: 'braco_d', label: 'Braço (D)' },
@@ -645,6 +694,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       <label className="text-[8px] font-bold text-gray-600 uppercase mb-1 block">
                         {f.label}
                       </label>
+
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -666,6 +716,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] border-l-4 border-blue-500 pl-3">
                   Membros Inferiores
                 </p>
+
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     { id: 'coxa_d', label: 'Coxa (D)' },
@@ -680,6 +731,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
                       <label className="text-[8px] font-bold text-gray-600 uppercase mb-1 block">
                         {f.label}
                       </label>
+
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -705,6 +757,7 @@ const ProgressoView: React.FC<ProgressoViewProps> = ({ user, onBack }) => {
               >
                 Cancelar
               </button>
+
               <button
                 onClick={handleSaveEval}
                 className="flex-1 bg-gold text-black py-5 rounded-2xl font-black uppercase text-xs shadow-2xl shadow-gold/20 active:scale-95 transition-all flex items-center justify-center space-x-2"

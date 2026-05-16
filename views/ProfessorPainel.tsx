@@ -4,6 +4,7 @@ import { db } from "../services/storage";
 import { supabase } from "../services/supabase";
 import { useNotification } from "../components/Notification";
 import AddStudentModal from "../components/AddStudentModal";
+import ProgressoView from "./ProgressoView";
 import { API_URL } from "../config/api";
 import {
   LogOut,
@@ -43,6 +44,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedAluno, setSelectedAluno] = useState<Usuario | null>(null);
+  const [showProgress, setShowProgress] = useState(false);
 
   const [treinos, setTreinos] = useState<Treino[]>([]);
   const [assignments, setAssignments] = useState<Atribuicao[]>([]);
@@ -135,9 +137,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
 
       const response = await fetch(`${API_URL}/create-student`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: normalizedName,
           email: normalizedEmail,
@@ -165,7 +165,6 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
       };
 
       setUsers((prev) => [...prev, novoAluno]);
-
       notify("Aluno criado com login automático 🔥", "success");
       setShowModal(false);
     } catch (err) {
@@ -176,10 +175,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
     }
   };
 
-  const alunos = useMemo(
-    () => users.filter((u) => u.role === "aluno"),
-    [users]
-  );
+  const alunos = useMemo(() => users.filter((u) => u.role === "aluno"), [users]);
 
   const getAvatar = (foto?: string) => {
     if (!foto || foto.includes("dicebear.com")) return "/aluno.png";
@@ -229,13 +225,9 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
         return;
       }
 
-      const alunoAtualizado: Usuario = {
-        ...selectedAluno,
-        status: novoStatus,
-      };
+      const alunoAtualizado: Usuario = { ...selectedAluno, status: novoStatus };
 
       setSelectedAluno(alunoAtualizado);
-
       setUsers((prev) =>
         prev.map((u) =>
           u.id === selectedAluno.id ? { ...u, status: novoStatus } : u
@@ -264,12 +256,9 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(
-        `${API_URL}/delete-student/${selectedAluno.id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`${API_URL}/delete-student/${selectedAluno.id}`, {
+        method: "DELETE",
+      });
 
       const result = await response.json();
 
@@ -280,6 +269,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
 
       setUsers((prev) => prev.filter((u) => u.id !== selectedAluno.id));
       setSelectedAluno(null);
+      setShowProgress(false);
 
       notify("Aluno excluído com sucesso 💀", "success");
     } catch (err) {
@@ -338,6 +328,16 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
     }
   };
 
+  if (selectedAluno && showProgress) {
+    return (
+      <ProgressoView
+        user={user}
+        selectedStudent={selectedAluno}
+        onBack={() => setShowProgress(false)}
+      />
+    );
+  }
+
   if (selectedAluno) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white p-6 sm:p-8">
@@ -387,6 +387,13 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowProgress(true)}
+                  className="rounded-xl bg-gold px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:brightness-110"
+                >
+                  Ver Evolução
+                </button>
+
                 <span className={getStatusBadge(selectedAluno.status)}>
                   {getStatusLabel(selectedAluno.status)}
                 </span>
@@ -403,9 +410,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
                       : "bg-red-500 text-white hover:bg-red-400"
                   }`}
                 >
-                  {selectedAluno.status === "bloqueado"
-                    ? "Desbloquear"
-                    : "Bloquear"}
+                  {selectedAluno.status === "bloqueado" ? "Desbloquear" : "Bloquear"}
                 </button>
 
                 <button
@@ -480,9 +485,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
                   <div
                     key={treino.id}
                     className={`rounded-[1.5rem] border p-4 transition-all ${
-                      ativo
-                        ? "border-gold/30 bg-gold/5"
-                        : "border-[#222] bg-[#0A0A0A]"
+                      ativo ? "border-gold/30 bg-gold/5" : "border-[#222] bg-[#0A0A0A]"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -501,9 +504,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
                       </span>
                     </div>
 
-                    <p className="mt-4 text-sm font-black text-white">
-                      {treino.titulo}
-                    </p>
+                    <p className="mt-4 text-sm font-black text-white">{treino.titulo}</p>
 
                     <button
                       onClick={() => handleToggleWorkout(String(treino.id))}
@@ -550,10 +551,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
         </div>
 
         {showModal && (
-          <AddStudentModal
-            onClose={() => setShowModal(false)}
-            onAdd={handleAddStudent}
-          />
+          <AddStudentModal onClose={() => setShowModal(false)} onAdd={handleAddStudent} />
         )}
       </div>
     );
@@ -631,9 +629,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
               Conta Atual
             </p>
-            <p className="mt-2 truncate text-sm font-bold text-white">
-              {user.email}
-            </p>
+            <p className="mt-2 truncate text-sm font-bold text-white">{user.email}</p>
           </div>
         </section>
 
@@ -650,9 +646,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
             </div>
           ) : alunos.length === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-white/10 bg-[#111] p-10 text-center">
-              <p className="text-sm font-bold text-gray-400">
-                Nenhum aluno encontrado
-              </p>
+              <p className="text-sm font-bold text-gray-400">Nenhum aluno encontrado</p>
               <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-600">
                 Adicione o primeiro atleta da legião
               </p>
@@ -702,13 +696,28 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
                         </span>
                       </div>
 
-                      <button
-                        onClick={() => setSelectedAluno(aluno)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#1A1A1A] px-4 py-2 text-xs font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-gold hover:text-black active:scale-95"
-                      >
-                        <span>Ver Perfil</span>
-                        <ChevronRight size={14} />
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedAluno(aluno);
+                            setShowProgress(false);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#1A1A1A] px-4 py-2 text-xs font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-gold hover:text-black active:scale-95"
+                        >
+                          <span>Ver Perfil</span>
+                          <ChevronRight size={14} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedAluno(aluno);
+                            setShowProgress(true);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl bg-gold px-4 py-2 text-xs font-black uppercase tracking-[0.15em] text-black transition-all hover:brightness-110 active:scale-95"
+                        >
+                          <span>Evolução</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -719,10 +728,7 @@ const ProfessorPainel: React.FC<Props> = ({ user, onLogout }) => {
       </div>
 
       {showModal && (
-        <AddStudentModal
-          onClose={() => setShowModal(false)}
-          onAdd={handleAddStudent}
-        />
+        <AddStudentModal onClose={() => setShowModal(false)} onAdd={handleAddStudent} />
       )}
     </div>
   );
