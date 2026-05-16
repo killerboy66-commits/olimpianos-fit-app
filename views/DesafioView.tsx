@@ -4,7 +4,7 @@ import React from 'react';
 import { Trophy, ExternalLink, Zap, Target, Users, Flame } from 'lucide-react';
 
 const DesafioView: React.FC = () => {
-  const gymRatsUrl = "https://gymrats.com.br"; // Substituir pelo link real do grupo se necessário
+  const gymRatsUrl = "https://share.gymrats.app/join?code=LGIHSDYB"; // Substituir pelo link real do grupo se necessário
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
