@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "DELETE, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -14,19 +14,20 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const userId = url.pathname.split("/").pop();
+    let userId = url.pathname.split("/").filter(Boolean).pop();
 
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "ID do aluno não informado." }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    if (req.method === "POST" && !userId) {
+      const body = await req.json().catch(() => ({}));
+      userId = body.userId;
+    }
+
+    console.log("ID recebido:", userId);
+
+    if (!userId || userId === "delete-student") {
+      return new Response(JSON.stringify({ error: "ID do aluno não informado." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseAdmin = createClient(
@@ -34,16 +35,26 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    await Promise.allSettled([
-      supabaseAdmin.from("atribuicoes").delete().eq("user_id", userId),
-      supabaseAdmin.from("ficha_treino_itens").delete().eq("user_id", userId),
-      supabaseAdmin.from("periodizacoes").delete().eq("user_id", userId),
-      supabaseAdmin.from("cronogramas").delete().eq("user_id", userId),
-      supabaseAdmin.from("student_notes").delete().eq("user_id", userId),
-      supabaseAdmin.from("avaliacoes_fisicas").delete().eq("user_id", userId),
-      supabaseAdmin.from("progresso").delete().eq("user_id", userId),
-      supabaseAdmin.from("exercise_loads").delete().eq("user_id", userId),
-    ]);
+    const tabelas = [
+      "atribuicoes",
+      "ficha_treino_itens",
+      "periodizacoes",
+      "cronogramas",
+      "student_notes",
+      "avaliacoes_fisicas",
+      "progresso",
+      "exercise_loads",
+    ];
+
+    for (const tabela of tabelas) {
+      const { error } = await supabaseAdmin.from(tabela).delete().eq("user_id", userId);
+
+      if (error) {
+        console.log(`Erro ao limpar ${tabela}:`, error.message);
+      } else {
+        console.log(`Limpeza OK: ${tabela}`);
+      }
+    }
 
     const { error: dbError } = await supabaseAdmin
       .from("usuarios")
@@ -51,47 +62,35 @@ serve(async (req) => {
       .eq("id", userId);
 
     if (dbError) {
+      console.log("Erro ao excluir da tabela usuarios:", dbError.message);
+
       return new Response(JSON.stringify({ error: dbError.message }), {
         status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { error: authError } =
-      await supabaseAdmin.auth.admin.deleteUser(userId);
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authError) {
+      console.log("Erro ao excluir do Auth:", authError.message);
+
       return new Response(JSON.stringify({ error: authError.message }), {
         status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
+    console.log("Erro geral:", err);
+
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
