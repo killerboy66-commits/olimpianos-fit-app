@@ -316,7 +316,7 @@ const AlunoDashboard: React.FC<AlunoDashboardProps> = ({
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter text-white">
-              🔥 ALUNO DASHBOARD CERTO
+              🏛️ CAMINHO DO OLIMPIANO ⚔️
             </h2>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:space-x-2">
               <p className="text-gray-500 text-[11px] sm:text-sm font-medium">
